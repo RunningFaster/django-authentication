@@ -8,6 +8,7 @@ media
 
 # Backup files #
 *.bak
+/django_auth_admin/settings.py
 
 # If you are using PyCharm #
 .idea/**/workspace.xml

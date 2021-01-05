@@ -16,12 +16,22 @@ class BaseModel(models.Model):
 class UserBase(BaseModel):
     username = models.CharField(u'用户名', max_length=50, unique=True)
     password = models.CharField(u'密码', max_length=128)
-    nick_name = models.CharField(u'昵称', max_length=50)
-    gender = models.CharField(max_length=6, choices=(('male', u'男'), ('female', u'女')), null=True, blank=True)
+    name = models.CharField(u'昵称', max_length=50)
+    SEX = (
+        (0, '女'),
+        (1, '男'),
+        (2, '未知'),
+    )
+    sex = models.IntegerField(choices=SEX, default=1, blank=True)
     mobile = models.CharField(u"手机", max_length=11, null=True, blank=True)
-    email = models.EmailField(u'email address', null=True, blank=True)
-    head_image = models.FileField(upload_to="image/%Y/%m", default="", max_length=1024, blank=True, null=True)
-    is_active = models.BooleanField(u'状态', default=True, blank=True)
+    email = models.EmailField(u'邮箱', null=True, blank=True)
+    head_image = models.FileField(upload_to="image/%Y/%m", default="", max_length=1024, blank=True, null=True,
+                                  verbose_name="头像")
+    IS_ACTIVE = (
+        (0, '停用'),
+        (1, '正常')
+    )
+    is_active = models.IntegerField(u'状态', choices=IS_ACTIVE, default=1, blank=True)
     # 行政区域
     city = models.CharField('市', max_length=50, default='上海市', blank=True)
     city_id = models.CharField("城市id", max_length=10, default="3101", blank=True)
@@ -32,6 +42,8 @@ class UserBase(BaseModel):
     committee = models.CharField('居委', max_length=50, default='', blank=True)
     committee_id = models.CharField("居委id", max_length=10, default='', blank=True)
     grid = models.CharField('网格', max_length=50, default='', blank=True, help_text='如果属于多个网格，使用,进行拼接')
+
+    role_id_list = models.CharField("角色对象id", max_length=1000, default='', blank=True)
 
     remark = models.CharField(u'备注', max_length=200, blank=True, default='')
 
@@ -122,7 +134,7 @@ class Role(BaseModel):
         return self.name
 
     class Meta:
-        verbose_name = u"部门信息"
+        verbose_name = u"角色信息"
         verbose_name_plural = verbose_name
 
 

@@ -52,7 +52,7 @@ class API_PATH:
         :return:
         """
         #todo: 新增返回字段信息
-        path, method, name, describe = endpoint.values()
+        path, method, name = endpoint.values()
         method_priority = {
             'GET': 0,
             'POST': 1,
@@ -119,10 +119,10 @@ class API_PATH:
                 callback = pattern.callback
                 if self.__should_include_endpoint(path, callback):
                     for method in self.__get_allowed_methods(callback):
-                        endpoint = {"api": path,
-                                    "describe": str(callback.initkwargs['description']).strip().split('\n')[0] if
-                                    callback.initkwargs.get('description') else
-                                    str(callback.__doc__).strip().split('\n')[0],
+                        endpoint = {"api": path.replace("/{pk}", ""),
+                                    # "describe": str(callback.initkwargs['description']).strip().split('\n')[0] if
+                                    # callback.initkwargs.get('description') else
+                                    # str(callback.__doc__).strip().split('\n')[0],
                                     #todo: 从 name 中获取备注信息
                                     "name": pattern.name,
                                     "method": method}
