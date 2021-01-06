@@ -18,6 +18,8 @@ common_urlpatterns = [
     path(r'api/list', views.ApiViewSet.as_view({'get': 'list'}), name="后台接口列表"),
 ]
 
+# 业务接口，通常根据角色进行对应的分配
+# todo: 数据层面的 分割，以什么形式进行参数可配式架构
 user_urlpatterns = [
     path(r'list', views.UserBaseViewSet.as_view({'get': 'list'}), name="用户列表"),
     path(r'info/<int:pk>', views.UserBaseViewSet.as_view({'get': 'retrieve'}), name="用户详情"),
@@ -40,4 +42,12 @@ role_urlpatterns = [
     path(r'add', views.RoleViewSet.as_view({'post': 'create'}), name="新增角色"),
     path(r'delete/<int:pk>', views.RoleViewSet.as_view({'post': 'destroy'}), name="删除角色"),
     path(r'update/<int:pk>', views.RoleViewSet.as_view({'post': 'update'}), name="更新角色"),
+]
+
+department_urlpatterns = [
+    path(r'list', views.DepartmentViewSet.as_view({'get': 'list'}), name="部门列表"),
+    path(r'info/<int:pk>', views.DepartmentViewSet.as_view({'get': 'retrieve'}), name="部门详情"),
+    path(r'add', views.DepartmentViewSet.as_view({'post': 'create'}), name="新增部门"),
+    path(r'delete/<int:pk>', views.DepartmentViewSet.as_view({'post': 'destroy'}), name="删除部门"),
+    path(r'update/<int:pk>', views.DepartmentViewSet.as_view({'post': 'update'}), name="更新部门"),
 ]

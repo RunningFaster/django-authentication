@@ -119,7 +119,7 @@ class API_PATH:
                 callback = pattern.callback
                 if self.__should_include_endpoint(path, callback):
                     for method in self.__get_allowed_methods(callback):
-                        endpoint = {"api": path.replace("/{pk}", ""),
+                        endpoint = {"path": path.replace("/{pk}", ""),
                                     # "describe": str(callback.initkwargs['description']).strip().split('\n')[0] if
                                     # callback.initkwargs.get('description') else
                                     # str(callback.__doc__).strip().split('\n')[0],
