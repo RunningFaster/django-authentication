@@ -51,3 +51,11 @@ department_urlpatterns = [
     path(r'delete/<int:pk>', views.DepartmentViewSet.as_view({'post': 'destroy'}), name="删除部门"),
     path(r'update/<int:pk>', views.DepartmentViewSet.as_view({'post': 'update'}), name="更新部门"),
 ]
+
+event_urlpatterns = [
+    path(r'list', views.EventViewSet.as_view({'get': 'list'}), name="案件列表"),
+    path(r'info/<int:pk>', views.EventViewSet.as_view({'get': 'retrieve'}), name="案件详情"),
+    path(r'add', views.EventViewSet.as_view({'post': 'create'}), name="新增案件"),
+    path(r'delete/<int:pk>', views.EventViewSet.as_view({'post': 'destroy'}), name="删除案件"),
+    path(r'update/<int:pk>', views.EventViewSet.as_view({'post': 'update'}), name="更新案件"),
+]

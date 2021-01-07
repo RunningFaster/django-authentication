@@ -14,10 +14,10 @@ from url_filter.integrations.drf import DjangoFilterBackend
 from django_auth_admin.api_path import API_PATH
 from django_auth_admin.jwt_authorization import JWTAuthentication, AdminPermission
 from users.models import UserBase, Menu, District, Street, Committee, Role, Department, Api, RoleUserBase, RoleMenu, \
-    MenuApi
+    MenuApi, Event
 from users.serializers import ListUserBaseSerializer, UserBaseSerializer, LoginSerializer, MenuSerializer, \
     DistrictSerializer, StreetSerializer, CommitteeSerializer, RoleSerializer, DepartmentSerializer, ApiSerializer, \
-    ListMenuSerializer, ListRoleSerializer
+    ListMenuSerializer, ListRoleSerializer, EventSerializer
 from rest_framework_jwt.settings import api_settings
 
 expiration_delta = api_settings.JWT_EXPIRATION_DELTA
@@ -158,6 +158,14 @@ class UserBaseViewSet(TokenViewSet):
     authentication_classes = (JWTAuthentication,)
     permission_classes = (AdminPermission,)
 
+    def list(self, request, *args, **kwargs):
+        # 查询包含分页的结果
+        queryset = self.filter_queryset(self.get_queryset())
+        # 结果集分页
+        page = self.paginate_queryset(queryset)
+        result_data = self.get_serializer(page, many=True).data
+        return Response(dict(self.get_paginated_response(result_data), **{'msg': '查询成功'}))
+
     def create(self, request, *args, **kwargs):
         req_user = request.user
         req_data = request.data.copy()
@@ -235,14 +243,24 @@ class MenuViewSet(BaseViewSet):
         with transaction.atomic():
             instance = self.add_instance(req_data, self.get_serializer_class(), request.user)
             # 如果当前新增的类型是  权限，则需要对应操作  api-menu 表
-            if req_data['type'] == 2 and request.data.get('apis'):
+            if req_data['type'] == 2 and request.data.get('perms'):
+                Api.objects.values_list("path", "id").filter()
                 add_menu_api_list = [MenuApi(**dict(
                     api=api,
                     menu=instance.id,
                     create_user=req_user.id,
                     update_user=req_user.id,
-                )) for api in request.data['apis']]
+                )) for api in request.data['perms']]
                 MenuApi.objects.bulk_create(add_menu_api_list)
+            # todo: 新增权限时，需要把对应的权限新增到用户角色体系中
+            role_id_list = list(RoleUserBase.objects.values_list("role", flat=True).filter(user_base=req_user.id))
+            add_role_menu_list = [RoleMenu(**dict(
+                role=role_id,
+                menu=instance.id,
+                create_user=req_user.id,
+                update_user=req_user.id
+            )) for role_id in role_id_list]
+            RoleMenu.objects.bulk_create(add_role_menu_list)
         return Response({'id': instance.id, 'msg': '新增成功'})
 
     def destroy(self, request, *args, **kwargs):
@@ -255,7 +273,7 @@ class MenuViewSet(BaseViewSet):
         # 指定用户的的权限列表，包含页面权限和数据权限
         req_user = request.user
         menus = []
-        new_perms = []
+        perms = []
         # 获取当前用户所拥有的所有的角色  ->  所对应的所有权限信息
         role_id_list = list(RoleUserBase.objects.values_list('role', flat=True).filter(user_base=req_user.id))
         menu_id_list = list(set(list(RoleMenu.objects.values_list("menu", flat=True).filter(role__in=role_id_list))))
@@ -263,16 +281,15 @@ class MenuViewSet(BaseViewSet):
         if menu_id_list:
             menu_instance_list = Menu.objects.filter(pk__in=menu_id_list)
             # 目录和菜单对象
-            menus = MenuSerializer(menu_instance_list.filter(type__in=[0, 1]), many=True).data
+            menus = MenuSerializer(menu_instance_list.all(), many=True).data
             perms = list(
                 Api.objects.values_list("path", flat=True).filter(pk__in=list(
                     MenuApi.objects.values_list("api", flat=True).filter(
                         pk__in=list(menu_instance_list.values_list("id", flat=True).filter(type=2)))
                 ))
             )
-            perms = list(Api.objects.values_list("path", flat=True).all())
-            new_perms = [info.split('/api/')[1].replace('/', ':') for info in perms if "common" not in info]
-        return Response({"data": {'menus': menus, 'perms': new_perms}, 'msg': '查询成功'})
+            perms = list(Api.objects.values_list("format_path", flat=True).filter(is_common=0))
+        return Response({"data": {'menus': menus, 'perms': perms}, 'msg': '查询成功'})
 
 
 class RoleViewSet(BaseViewSet):
@@ -317,6 +334,21 @@ class DepartmentViewSet(BaseViewSet):
         return DepartmentSerializer
 
 
+class EventViewSet(BaseViewSet):
+    queryset = Event.objects.get_queryset().order_by('id')
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (AdminPermission,)
+
+    def get_serializer_class(self):
+        return EventSerializer
+
+    def create(self, request, *args, **kwargs):
+        req_data = request.data.copy()
+        req_data["department"] = request.user.department
+        instance = self.add_instance(req_data, self.get_serializer_class(), request.user)
+        return Response({'id': instance.id, 'msg': '新增成功'})
+
+
 class DistrictViewSet(BaseViewSet):
     queryset = District.objects.get_queryset().order_by('id')
     authentication_classes = (JWTAuthentication,)
@@ -357,16 +389,20 @@ class ApiViewSet(BaseViewSet):
         api_obj = API_PATH()
         api_list = api_obj.get_apis()
         # 查询当前数据库中的所有的api接口信息
-        now_api_list = Api.objects.all().values_list("name", "path", "method")
+        now_api_list = list(Api.objects.all().values_list("path", flat=True))
         # 组装最新的api接口信息
         new_api_list = [(info['name'], info['path'], info['method']) for info in api_list]
         # todo: 两者进行对比，区分出需要 新增的api 和 需要修改的api 和 需要删除的api
         add_api_list = []
         for info in api_list:
-            if "common" in info['path']:
-                info['is_common'] = 1
+            if info['path'] in now_api_list:
+                continue
             info['is_common'] = 0
             info['create_user'] = info['update_user'] = req_user.id
+            info['format_path'] = info['path'].split('/api/')[1].replace('/', ':')
+            if "common" in info['path']:
+                info['is_common'] = 1
+                info['format_path'] = ""
             add_api_list.append(Api(**info))
-        # Api.objects.bulk_create(add_api_list)
+        Api.objects.bulk_create(add_api_list)
         return Response({'data': api_list, 'msg': '查询成功'})

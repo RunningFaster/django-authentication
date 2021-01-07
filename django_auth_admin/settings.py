@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    'debug_toolbar',
     'rest_framework',
     'users'
 ]
@@ -36,11 +37,16 @@ INSTALLED_APPS = [
 # 替换Django默认的用户模型
 AUTH_USER_MODEL = 'users.UserBase'
 
+INTERNAL_IPS = [
+    '10.8.29.72',
+]
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -109,7 +115,7 @@ REST_FRAMEWORK = {
 JWT_AUTH = {
     'JWT_AUTH_HEADER_PREFIX': 'JWT',  # 设置 请求头中的前缀
     # 自定义用户生成token时使用的secret信息，作用于如果用户进行密码修改，则原token在进行验证时则会失败
-    'JWT_GET_USER_SECRET_KEY': 'users.utils.jwt_get_user_secret',
+    # 'JWT_GET_USER_SECRET_KEY': 'users.utils.jwt_get_user_secret',
     'JWT_EXPIRATION_DELTA': datetime.timedelta(seconds=100000),
 }
 

@@ -6,7 +6,7 @@ from rest_framework.permissions import BasePermission
 from rest_framework_jwt.serializers import VerifyJSONWebTokenSerializer
 from django.core.cache import cache
 
-from users.models import Role, Menu
+from users.models import Role, Menu, RoleUserBase, RoleDepartment, RoleMenu, Api, MenuApi
 
 
 class RewriteVerifyJSONWebTokenSerializer(VerifyJSONWebTokenSerializer):
@@ -65,27 +65,39 @@ class JWTAuthentication(TokenAuthentication):
 
 class AdminPermission(BasePermission):
     def has_permission(self, request, view):
+        """
+        超级管理员角色，只能操作
+        """
         user = request.user
         if user:
             return True
-        # 处理当前路由上的可变参数信息
         try:
+            # 当前接口如果最后一位是可变参数，则需要排除掉此部分
             int(request.path[-1])
-            req_path = "/".join(request.path.split('/')[2:-1]).replace('/', ':')
+            req_path = "/".join(request.path.split('/')[:-1])
         except ValueError:
-            req_path = request.path.split('/api/')[1].replace('/', ':')
+            req_path = request.path
         if "common" in req_path:
-            # 通用接口，不受到任何权限的限制
+            # 通用接口，不受到权限的控制
             return True
-        # 第一层判断：接口权限过滤，判断当前用户是否拥有当前接口的操作权限
-        menu_id_list = list(set(",".join(list(Role.objects.values_list('menu_id_list', flat=True).filter(
-            pk__in=user.role_id_list.split(',')))).split(",")))
-        if not len(menu_id_list):
+
+        # 查询当前用户所拥有的 角色
+        role_id_list = list(RoleUserBase.objects.values_list("role", flat=True).filter(user_base=user.id))
+        if 1 not in role_id_list:
+            # 超级管理员不受到权限控制
+            return True
+
+        # 接口权限过滤，判断当前用户是否拥有当前接口的操作权限
+        try:
+            api_instance = Api.objects.get(path=req_path, method=request.META['REQUEST_METHOD'])
+        except Api.DoesNotExist:
+            raise exceptions.PermissionDenied()
+        # 查询当前角色 所拥有的的所有的权限信息
+        menu_id_list = list(set(list(RoleMenu.objects.values_list("menu", flat=True).filter(role__in=role_id_list))))
+        if not menu_id_list:
             return False
-        menu_instance_list = Menu.objects.filter(pk__in=menu_id_list)
-        perms = list(
-            set(",".join(list(menu_instance_list.values_list("perms", flat=True).filter(type=2))).split(',')))
-        if req_path not in perms:
+        # 查询 所有权限对应的 API 的信息
+        apis = MenuApi.objects.values_list("api", flat=True).filter(menu__in=menu_id_list)
+        if api_instance.id not in apis:
             return False
-        # 第二次过滤：数据权限过滤，需要根据当前用户属于哪个部门进行数据过滤，
         return True

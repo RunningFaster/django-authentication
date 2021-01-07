@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from users.models import UserBase, Menu, District, Street, Committee, Role, Department, Api, RoleUserBase
+from users.models import UserBase, Menu, District, Street, Committee, Role, Department, Api, RoleUserBase, Event
 
 
 class LoginSerializer(serializers.Serializer):
@@ -16,10 +16,14 @@ class UserBaseSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         # 校验roles信息是否符合规范
-        if attrs.get('roles'):
+        if attrs.get('roles') is not None:
             if Role.objects.filter(pk__in=attrs['roles']).count() != len(attrs['roles']):
                 raise serializers.ValidationError("角色信息有误，请核实")
             del attrs["roles"]
+        # 校验department_id信息是否符合规范
+        if attrs.get('department') is not None:
+            if not Department.objects.filter(pk=attrs['department']).count():
+                raise serializers.ValidationError("部门信息有误，请核实")
         return attrs
 
 
@@ -32,7 +36,8 @@ class ApiSerializer(serializers.ModelSerializer):
 class ListUserBaseSerializer(serializers.ModelSerializer):
     sex_desc = serializers.CharField(source="get_sex_display")
     is_active_desc = serializers.CharField(source="get_is_active_display")
-    role_name = serializers.SerializerMethodField()
+    # role_name = serializers.SerializerMethodField()
+    # department_name = serializers.SerializerMethodField()
 
     class Meta:
         model = UserBase
@@ -42,6 +47,11 @@ class ListUserBaseSerializer(serializers.ModelSerializer):
         role_user_base_list = list(RoleUserBase.objects.values_list("role", flat=True).filter(user_base=obj.id))
         name_list = ",".join(Role.objects.values_list('name', flat=True).filter(pk__in=role_user_base_list))
         return name_list
+
+    def get_department_name(self, obj):
+        if obj.department:
+            return Department.objects.get(pk=obj.department).name
+        return ""
 
 
 class MenuSerializer(serializers.ModelSerializer):
@@ -106,6 +116,12 @@ class DepartmentSerializer(serializers.ModelSerializer):
         if obj.parent_id:
             return Department.objects.get(pk=obj.parent_id).name
         return ""
+
+
+class EventSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Event
+        fields = '__all__'
 
 
 class DistrictSerializer(serializers.ModelSerializer):

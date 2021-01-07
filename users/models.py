@@ -43,8 +43,7 @@ class UserBase(BaseModel):
     committee_id = models.CharField("居委id", max_length=10, default="", blank=True)
     grid = models.CharField("网格", max_length=50, default="", blank=True, help_text="如果属于多个网格，使用,进行拼接")
 
-    # role_id_list = models.CharField("角色对象列表", max_length=1000, default="", blank=True)
-    # department_id = models.CharField("部门对象", max_length=10, default="", blank=True)
+    department = models.CharField("部门对象", max_length=10, null=True, blank=True)
 
     remark = models.CharField("备注", max_length=200, blank=True, default="")
 
@@ -101,10 +100,18 @@ class UserBase(BaseModel):
 
 class Api(BaseModel):
     name = models.CharField("接口名称", max_length=200)
-    path = models.CharField("接口地址", max_length=200)
+    path = models.CharField("接口地址", max_length=200, db_index=True)
+    format_path = models.CharField("格式化接口地址", max_length=200, default="", blank=True, db_index=True)
     method = models.CharField("方法", max_length=200)
-    is_common = models.BooleanField("是否通用接口", default=False, blank=True)
+    is_common = models.IntegerField("是否通用接口", default=0, blank=True)
     remark = models.CharField("备注", max_length=300, default="", blank=True)
+    MODE = (
+        (0, "仅本人"),
+        (1, "仅本部门"),
+        (2, "全部"),
+        (3, "自定义"),
+    )
+    mode = models.IntegerField("数据授权范围", choices=MODE, default=1, blank=True)
 
     def __str(self):
         return self.name
@@ -117,18 +124,18 @@ class Api(BaseModel):
 class Menu(BaseModel):
     name = models.CharField("节点名称", max_length=200)
     icon = models.CharField("节点图标", max_length=100, blank=True, default="")
-    is_show = models.BooleanField("是否显示", default=True, blank=True)
-    order_num = models.IntegerField("排序号", default=1, blank=True, help_text="1-99数值越小，顺序越靠前")
+    is_show = models.IntegerField("是否显示", default=1, blank=True)
+    order_num = models.IntegerField("排序号", default=0, blank=True, help_text="0-99数值越小，顺序越靠前", db_index=True)
     TYPE = (
         (0, "目录"),
         (1, "菜单"),
         (2, "权限"),
     )
     type = models.IntegerField("类型", choices=TYPE)
-    is_keep_alive = models.BooleanField("页面是否缓存", default=False, blank=True)
+    is_keep_alive = models.IntegerField("页面是否缓存", default=1, blank=True)
     path = models.CharField("路由地址", max_length=200, blank=True, default="")
     view_path = models.CharField("文件路径", max_length=200, blank=True, default="")
-    parent_id = models.IntegerField("父级对象", blank=True, null=True)
+    parent_id = models.IntegerField("父级对象", blank=True, default=0)
 
     def __str(self):
         return self.name
@@ -151,7 +158,7 @@ class MenuApi(BaseModel):
 
 
 class Role(BaseModel):
-    name = models.CharField("名称", max_length=200)
+    name = models.CharField("名称", max_length=200, unique=True, db_index=True, help_text="角色名称唯一，admin为超级管理员")
     label = models.CharField("标识", max_length=200)
     remark = models.CharField("备注", max_length=200, blank=True, default="")
 
@@ -160,6 +167,15 @@ class Role(BaseModel):
 
     class Meta:
         verbose_name = "角色表"
+        verbose_name_plural = verbose_name
+
+
+class RoleDepartment(BaseModel):
+    role = models.IntegerField("角色", db_index=True)
+    department = models.IntegerField("部门", db_index=True)
+
+    class Meta:
+        verbose_name = "角色部门表"
         verbose_name_plural = verbose_name
 
 
@@ -189,7 +205,8 @@ class RoleMenu(BaseModel):
 
 class Department(BaseModel):
     name = models.CharField("名称", max_length=200)
-    order_num = models.IntegerField("排序号", default=1, blank=True, help_text="1-99数值越小，顺序越靠前")
+    nick_name = models.CharField("别名", max_length=200, blank=True, null=True)
+    full_name = models.CharField("全称", max_length=200, blank=True, null=True)
     parent_id = models.IntegerField("父级对象", blank=True, null=True)
 
     def __str(self):
@@ -200,15 +217,13 @@ class Department(BaseModel):
         verbose_name_plural = verbose_name
 
 
-class UserBaseDepartment(BaseModel):
-    user_base = models.IntegerField("用户", db_index=True)
-    department = models.IntegerField("部门", db_index=True)
-
-    def __str(self):
-        return str(self.user_base) + "/" + str(self.department)
+class Event(BaseModel):
+    name = models.CharField("名称", max_length=200)
+    department = models.IntegerField("部门", db_index=True, help_text="当前数据来源于哪个部门")
+    parent_id = models.IntegerField("父级对象", blank=True, null=True)
 
     class Meta:
-        verbose_name = "用户部门表"
+        verbose_name = "事件表"
         verbose_name_plural = verbose_name
 
 
