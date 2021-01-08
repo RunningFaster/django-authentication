@@ -36,6 +36,7 @@ class ApiSerializer(serializers.ModelSerializer):
 class ListUserBaseSerializer(serializers.ModelSerializer):
     sex_desc = serializers.CharField(source="get_sex_display")
     is_active_desc = serializers.CharField(source="get_is_active_display")
+
     # role_name = serializers.SerializerMethodField()
     # department_name = serializers.SerializerMethodField()
 
@@ -72,6 +73,7 @@ class MenuSerializer(serializers.ModelSerializer):
 
 class ListMenuSerializer(serializers.ModelSerializer):
     parent_name = serializers.SerializerMethodField()
+    parent_id = serializers.SerializerMethodField()
 
     class Meta:
         model = Menu
@@ -81,6 +83,11 @@ class ListMenuSerializer(serializers.ModelSerializer):
         if obj.parent_id:
             return Menu.objects.get(pk=obj.parent_id).name
         return ""
+
+    def get_parent_id(self, obj):
+        if obj.parent_id == 0:
+            return None
+        return obj.parent_id
 
 
 class ListRoleSerializer(serializers.ModelSerializer):

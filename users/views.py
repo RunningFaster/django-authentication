@@ -281,7 +281,7 @@ class MenuViewSet(BaseViewSet):
         if menu_id_list:
             menu_instance_list = Menu.objects.filter(pk__in=menu_id_list)
             # 目录和菜单对象
-            menus = MenuSerializer(menu_instance_list.all(), many=True).data
+            menus = ListMenuSerializer(menu_instance_list.all(), many=True).data
             perms = list(
                 Api.objects.values_list("path", flat=True).filter(pk__in=list(
                     MenuApi.objects.values_list("api", flat=True).filter(
