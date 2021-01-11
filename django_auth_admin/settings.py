@@ -31,7 +31,8 @@ INSTALLED_APPS = [
 
     'debug_toolbar',
     'rest_framework',
-    'users'
+    'users',
+    'event',
 ]
 
 # 替换Django默认的用户模型
@@ -39,6 +40,8 @@ AUTH_USER_MODEL = 'users.UserBase'
 
 INTERNAL_IPS = [
     '10.8.29.72',
+    '10.8.29.80',
+    '10.8.29.79',
 ]
 
 MIDDLEWARE = [
@@ -108,8 +111,12 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.BrowsableAPIRenderer',
     ],
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_jwt.authentication.JSONWebTokenAuthentication"
-    )
+        'rest_framework.authentication.BasicAuthentication',
+        'rest_framework.authentication.SessionAuthentication'
+    ),
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ]
 }
 
 JWT_AUTH = {

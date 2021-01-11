@@ -1,23 +1,19 @@
 import time
-
-# Create your views here.
 import datetime
 
-from django.core import exceptions
 from django.db import transaction
-from rest_framework import viewsets
+from django.db.models import Prefetch
 from rest_framework.response import Response
 from rest_framework_jwt.serializers import jwt_payload_handler, jwt_encode_handler
 from django.core.cache import cache
-from url_filter.integrations.drf import DjangoFilterBackend
 
 from django_auth_admin.api_path import API_PATH
+from django_auth_admin.base_viewset import BaseViewSet
 from django_auth_admin.jwt_authorization import JWTAuthentication, AdminPermission
-from users.models import UserBase, Menu, District, Street, Committee, Role, Department, Api, RoleUserBase, RoleMenu, \
-    MenuApi, Event
+from users.models import UserBase, Menu, District, Street, Role, Department, Api, City
 from users.serializers import ListUserBaseSerializer, UserBaseSerializer, LoginSerializer, MenuSerializer, \
-    DistrictSerializer, StreetSerializer, CommitteeSerializer, RoleSerializer, DepartmentSerializer, ApiSerializer, \
-    ListMenuSerializer, ListRoleSerializer, EventSerializer
+    DistrictSerializer, StreetSerializer, RoleSerializer, DepartmentSerializer, ApiSerializer, \
+    ListMenuSerializer, ListRoleSerializer, CitySerializer
 from rest_framework_jwt.settings import api_settings
 
 expiration_delta = api_settings.JWT_EXPIRATION_DELTA
@@ -31,74 +27,6 @@ def encode_handler(instance, is_refresh=False):
         payload['refresh'] = int(time.mktime((datetime.datetime.now() + refresh_expiration_delta).timetuple()))
     token = jwt_encode_handler(payload)
     return token
-
-
-class BaseViewSet(viewsets.ModelViewSet):
-    filter_backends = [DjangoFilterBackend]
-    filter_fields = '__all__'
-    ordering_fields = '__all__'
-    search_fields = '__all__'
-
-    def list(self, request, *args, **kwargs):
-        # 查询包含分页的结果
-        queryset = self.filter_queryset(self.get_queryset())
-        # 结果集分页
-        page = self.paginate_queryset(queryset)
-        result_data = self.get_serializer(page, many=True).data
-        return Response(dict(self.get_paginated_response(result_data), **{'msg': '查询成功'}))
-
-    def list_without_paginate(self, request, *args, **kwargs):
-        # 查询不包含分页的结果
-        queryset = self.filter_queryset(self.get_queryset())
-        result_data = self.get_serializer(queryset, many=True).data
-        return Response(dict(result_data, **{'msg': '查询成功'}))
-
-    def retrieve(self, request, *args, **kwargs):
-        # 查询指定对象的详情
-        instance = self.get_object()
-        result_data = self.get_serializer(instance).data
-        return Response(dict(result_data, **{'msg': '查询成功'}))
-
-    def create(self, request, *args, **kwargs):
-        req_data = request.data.copy()
-        instance = self.add_instance(req_data, self.get_serializer_class(), request.user)
-        return Response({'id': instance.id, 'msg': '新增成功'})
-
-    def update(self, request, *args, **kwargs):
-        # 更新对象
-        instance = self.get_object()
-        req_data = request.data.copy()
-        self.update_instance(req_data, self.get_serializer_class(), instance, request.user)
-        return Response({'id': instance.id, 'msg': '更新成功'})
-
-    def destroy(self, request, *args, **kwargs):
-        # 删除指定对象，当前删除为硬删除，直接在数据库中进行删除处理
-        instance = self.get_object()
-        instance.delete()
-        return Response({'msg': '删除成功'})
-
-    @staticmethod
-    def update_instance(data: dict, serializer, instance, user):
-        # 更新对象
-        data['update_user'] = user.id
-        serializer = serializer(instance, data, partial=True)
-        result_bool = serializer.is_valid(raise_exception=False)
-        if not result_bool:
-            raise exceptions.ValidationError(serializer.errors)
-        serializer.save()
-        return instance
-
-    @staticmethod
-    def add_instance(data: dict, serializer, user):
-        # 新增对象
-        data['create_user'] = user.id
-        data['update_user'] = user.id
-        serializer = serializer(data=data)
-        result_bool = serializer.is_valid(raise_exception=False)
-        if not result_bool:
-            raise exceptions.ValidationError(serializer.errors)
-        instance = serializer.save()
-        return instance
 
 
 class TokenViewSet(BaseViewSet):
@@ -135,6 +63,7 @@ class TokenViewSet(BaseViewSet):
 
 class AuthTokenViewSet(TokenViewSet):
     authentication_classes = (JWTAuthentication,)
+    permission_classes = (AdminPermission,)
 
     # 刷新认证
     def refresh(self, request, *args, **kwargs):
@@ -154,12 +83,13 @@ class AuthTokenViewSet(TokenViewSet):
         return Response({'msg': '退出成功'})
 
 
-class UserBaseViewSet(TokenViewSet):
-    authentication_classes = (JWTAuthentication,)
-    permission_classes = (AdminPermission,)
+class UserBaseViewSet(AuthTokenViewSet):
+    queryset = UserBase.objects.get_queryset().select_related("department").prefetch_related(
+        Prefetch("role", queryset=Role.objects.only('name'))
+    ).order_by('-id')
 
     def list(self, request, *args, **kwargs):
-        # 查询包含分页的结果
+        # 查询包含分页的结果，为了方便后续的数据展示处理，对外键进行冗余查询
         queryset = self.filter_queryset(self.get_queryset())
         # 结果集分页
         page = self.paginate_queryset(queryset)
@@ -174,18 +104,7 @@ class UserBaseViewSet(TokenViewSet):
             req_data.pop('head_image')
         req_data['create_user'] = req_data['update_user'] = req_user.id  # 创建用户
         req_data['password'] = UserBase.set_password(req_data['password'])
-        serializer = self.get_serializer(data=req_data)
-        serializer.is_valid(raise_exception=True)
-        with transaction.atomic():
-            instance = serializer.save()
-            # 新增用户角色表
-            add_role_user_base = [RoleUserBase(**dict(
-                user_base=instance.id,
-                role=role_id,
-                create_user=req_user.id,
-                update_user=req_user.id,
-            )) for role_id in req_data.get("roles")]
-            RoleUserBase.objects.bulk_create(add_role_user_base)
+        instance = self.add_instance(req_user, self.get_serializer_class(), req_user)
         return Response({'id': instance.id, 'msg': '新增成功'})
 
     def update(self, request, *args, **kwargs):
@@ -194,25 +113,7 @@ class UserBaseViewSet(TokenViewSet):
         if req_data.get('password'):
             req_data['password'] = UserBase.set_password(req_data['password'])
         instance = self.get_object()
-        serializer = self.get_serializer(instance, data=req_data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        with transaction.atomic():
-            if req_data:
-                instance = serializer.save()
-            # 更新用户角色
-            role_user_base_list = RoleUserBase.objects.filter(user_base=instance.id)
-            roles = request.data.get('roles')
-            if roles and roles != list(role_user_base_list.values_list("role", flat=True)):
-                role_user_base_list.delete()
-                add_role_user_base_list = [
-                    RoleUserBase(**dict(
-                        role=role_id,
-                        user_base=instance.id,
-                        create_user=req_user.id,
-                        update_user=req_user.id
-                    )) for role_id in req_data.get('roles')
-                ]
-                RoleUserBase.objects.bulk_create(add_role_user_base_list)
+        self.update_instance(req_data, self.get_serializer_class(), instance, req_user)
         return Response({'id': instance.id, 'msg': '更新成功'})
 
     def retrieve_person(self, request, *args, **kwargs):
@@ -228,7 +129,7 @@ class UserBaseViewSet(TokenViewSet):
 
 
 class MenuViewSet(BaseViewSet):
-    queryset = Menu.objects.get_queryset().order_by('order_num')
+    queryset = Menu.objects.get_queryset().select_related("parent").order_by('order_num')
     authentication_classes = (JWTAuthentication,)
     permission_classes = (AdminPermission,)
 
@@ -236,6 +137,11 @@ class MenuViewSet(BaseViewSet):
         if self.action in ['list', 'retrieve']:
             return ListMenuSerializer
         return MenuSerializer
+
+    def list(self, request, *args, **kwargs):
+        # 查询包含分页的结果
+        queryset = self.filter_queryset(self.get_queryset())
+        return Response({'msg': '查询成功'})
 
     def create(self, request, *args, **kwargs):
         req_user = request.user
@@ -334,19 +240,13 @@ class DepartmentViewSet(BaseViewSet):
         return DepartmentSerializer
 
 
-class EventViewSet(BaseViewSet):
-    queryset = Event.objects.get_queryset().order_by('id')
+class CityViewSet(BaseViewSet):
+    queryset = City.objects.get_queryset().order_by('id')
     authentication_classes = (JWTAuthentication,)
     permission_classes = (AdminPermission,)
 
     def get_serializer_class(self):
-        return EventSerializer
-
-    def create(self, request, *args, **kwargs):
-        req_data = request.data.copy()
-        req_data["department"] = request.user.department
-        instance = self.add_instance(req_data, self.get_serializer_class(), request.user)
-        return Response({'id': instance.id, 'msg': '新增成功'})
+        return CitySerializer
 
 
 class DistrictViewSet(BaseViewSet):
@@ -367,15 +267,6 @@ class StreetViewSet(BaseViewSet):
         return StreetSerializer
 
 
-class CommitteeViewSet(BaseViewSet):
-    queryset = Committee.objects.get_queryset().order_by('id')
-    authentication_classes = (JWTAuthentication,)
-    permission_classes = (AdminPermission,)
-
-    def get_serializer_class(self):
-        return CommitteeSerializer
-
-
 class ApiViewSet(BaseViewSet):
     queryset = Api.objects.get_queryset().order_by('id')
     authentication_classes = (JWTAuthentication,)
@@ -390,8 +281,6 @@ class ApiViewSet(BaseViewSet):
         api_list = api_obj.get_apis()
         # 查询当前数据库中的所有的api接口信息
         now_api_list = list(Api.objects.all().values_list("path", flat=True))
-        # 组装最新的api接口信息
-        new_api_list = [(info['name'], info['path'], info['method']) for info in api_list]
         # todo: 两者进行对比，区分出需要 新增的api 和 需要修改的api 和 需要删除的api
         add_api_list = []
         for info in api_list:

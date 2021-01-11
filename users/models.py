@@ -2,28 +2,24 @@ from django.contrib.auth.hashers import make_password, check_password
 from django.contrib.auth.models import AbstractUser, UserManager
 from django.db import models
 
-
-class BaseModel(models.Model):
-    create_datetime = models.DateTimeField("新增时间", auto_now_add=True, editable=False, db_index=True)
-    create_user = models.IntegerField("创建者", blank=True)
-    update_datetime = models.DateTimeField("最新修改时间", auto_now=True, editable=False, db_index=True)
-    update_user = models.IntegerField("修改者", blank=True)
-
-    class Meta:
-        abstract = True
+from django_auth_admin.base_model import BaseModel
 
 
 class UserBase(BaseModel):
+    """
+    用户信息
+        居委信息，需要使用部门来进行完成配置操作
+    """
     username = models.CharField("用户名", max_length=50, unique=True)
     password = models.CharField("密码", max_length=128)
-    name = models.CharField("昵称", max_length=50)
+    name = models.CharField("昵称", max_length=50, db_index=True)
     SEX = (
         (0, "女"),
         (1, "男"),
         (2, "未知"),
     )
     sex = models.IntegerField(choices=SEX, default=1, blank=True)
-    mobile = models.CharField("手机", max_length=11, null=True, blank=True)
+    mobile = models.CharField("手机", max_length=11, default="", blank=True, db_index=True)
     email = models.EmailField("邮箱", null=True, blank=True)
     head_image = models.FileField(upload_to="image/%Y/%m", default="", max_length=1024, blank=True, null=True,
                                   verbose_name="头像")
@@ -33,18 +29,27 @@ class UserBase(BaseModel):
     )
     is_active = models.IntegerField("状态", choices=IS_ACTIVE, default=1, blank=True)
     # 行政区域
-    city = models.CharField("市", max_length=50, default="上海市", blank=True)
-    city_id = models.CharField("城市id", max_length=10, default="3101", blank=True)
-    district = models.CharField("区县", max_length=50, default="", blank=True)
-    district_id = models.CharField("区县id", max_length=10, default="", blank=True)
-    street = models.CharField("街道", max_length=50, default="", blank=True)
-    street_id = models.CharField("街道id", max_length=10, default="", blank=True)
-    committee = models.CharField("居委", max_length=50, default="", blank=True)
-    committee_id = models.CharField("居委id", max_length=10, default="", blank=True)
-    grid = models.CharField("网格", max_length=50, default="", blank=True, help_text="如果属于多个网格，使用,进行拼接")
+    city = models.ForeignKey(
+        "City", related_name="user_base",
+        on_delete=models.SET_NULL,
+        blank=True, null=True, verbose_name="城市")
+    district = models.ForeignKey(
+        "District", related_name="user_base",
+        on_delete=models.SET_NULL,
+        blank=True, null=True, verbose_name="区/县")
+    street = models.ForeignKey(
+        "Street", related_name="user_base",
+        on_delete=models.SET_NULL,
+        blank=True, null=True, verbose_name="街道/乡镇")
+    # 冗余字段，下方字段为不经常修改的字段，如果有发生修改，则需要在所有的对应表中做对应的修改
+    city_name = models.CharField("城市", max_length=50, default="", blank=True)
+    district_name = models.CharField("区/县", max_length=50, default="", blank=True)
+    street_name = models.CharField("街道/乡镇", max_length=50, default="", blank=True)
 
-    department = models.CharField("部门对象", max_length=10, null=True, blank=True)
-
+    department = models.ForeignKey(
+        "Department", on_delete=models.SET_NULL,
+        blank=True, null=True, verbose_name="部门")
+    role = models.ManyToManyField("Role", related_name="user_base")
     remark = models.CharField("备注", max_length=200, blank=True, default="")
 
     # 在重写Django默认User模型时，需要当前三个属性
@@ -105,13 +110,6 @@ class Api(BaseModel):
     method = models.CharField("方法", max_length=200)
     is_common = models.IntegerField("是否通用接口", default=0, blank=True)
     remark = models.CharField("备注", max_length=300, default="", blank=True)
-    MODE = (
-        (0, "仅本人"),
-        (1, "仅本部门"),
-        (2, "全部"),
-        (3, "自定义"),
-    )
-    mode = models.IntegerField("数据授权范围", choices=MODE, default=1, blank=True)
 
     def __str(self):
         return self.name
@@ -135,71 +133,14 @@ class Menu(BaseModel):
     is_keep_alive = models.IntegerField("页面是否缓存", default=1, blank=True)
     path = models.CharField("路由地址", max_length=200, blank=True, default="")
     view_path = models.CharField("文件路径", max_length=200, blank=True, default="")
-    parent_id = models.IntegerField("父级对象", blank=True, default=0)
+    parent = models.ForeignKey("self", on_delete=models.SET_NULL, blank=True, null=True, verbose_name="父级对象")
+    api = models.ManyToManyField(Api, related_name="menu")
 
     def __str(self):
         return self.name
 
     class Meta:
         verbose_name = "权限表"
-        verbose_name_plural = verbose_name
-
-
-class MenuApi(BaseModel):
-    menu = models.IntegerField("权限", db_index=True)
-    api = models.IntegerField("接口", db_index=True)
-
-    def __str(self):
-        return str(self.menu) + "/" + str('api')
-
-    class Meta:
-        verbose_name = "权限接口表"
-        verbose_name_plural = verbose_name
-
-
-class Role(BaseModel):
-    name = models.CharField("名称", max_length=200, unique=True, db_index=True, help_text="角色名称唯一，admin为超级管理员")
-    label = models.CharField("标识", max_length=200)
-    remark = models.CharField("备注", max_length=200, blank=True, default="")
-
-    def __str(self):
-        return self.name
-
-    class Meta:
-        verbose_name = "角色表"
-        verbose_name_plural = verbose_name
-
-
-class RoleDepartment(BaseModel):
-    role = models.IntegerField("角色", db_index=True)
-    department = models.IntegerField("部门", db_index=True)
-
-    class Meta:
-        verbose_name = "角色部门表"
-        verbose_name_plural = verbose_name
-
-
-class RoleUserBase(BaseModel):
-    role = models.IntegerField("角色", db_index=True)
-    user_base = models.IntegerField("用户", db_index=True)
-
-    def __str(self):
-        return str(self.user_base) + "/" + str(self.role)
-
-    class Meta:
-        verbose_name = "用户角色表"
-        verbose_name_plural = verbose_name
-
-
-class RoleMenu(BaseModel):
-    role = models.IntegerField("角色", db_index=True)
-    menu = models.IntegerField("权限", db_index=True)
-
-    def __str(self):
-        return str(self.menu) + "/" + str(self.role)
-
-    class Meta:
-        verbose_name = "角色权限表"
         verbose_name_plural = verbose_name
 
 
@@ -217,13 +158,40 @@ class Department(BaseModel):
         verbose_name_plural = verbose_name
 
 
-class Event(BaseModel):
-    name = models.CharField("名称", max_length=200)
-    department = models.IntegerField("部门", db_index=True, help_text="当前数据来源于哪个部门")
-    parent_id = models.IntegerField("父级对象", blank=True, null=True)
+class Role(BaseModel):
+    name = models.CharField("名称", max_length=200, unique=True, db_index=True, help_text="角色名称唯一，admin为超级管理员")
+    label = models.CharField("标识", max_length=200)
+    remark = models.CharField("备注", max_length=200, blank=True, default="")
+    menu = models.ManyToManyField(Menu, related_name="role")
+    """
+    角色和部门的关系，如果当前角色没有分配任何一个部门的数据权限，则默认为只查询与自身相关的
+    数据的过滤，是根据不同的业务需求进行过滤。。
+    考虑到的情况是：一个小组长新增了一个业务数据，把这个数据分配给了小组下的某个员工，则该员工也能查看到当前数据，其他员工无法查看数据
+    """
+    department = models.ManyToManyField(Department, related_name="department")
+
+    def __str(self):
+        return self.name
 
     class Meta:
-        verbose_name = "事件表"
+        verbose_name = "角色表"
+        verbose_name_plural = verbose_name
+
+
+# 市
+class City(models.Model):
+    name = models.CharField("名称", max_length=128, unique=True)
+
+    create_time = models.DateTimeField("create time", auto_now_add=True)
+    update_time = models.DateTimeField("update time", auto_now=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        managed = True
+        db_table = "metadata_city"
+        verbose_name = "市数据"
         verbose_name_plural = verbose_name
 
 
@@ -263,23 +231,4 @@ class Street(models.Model):
         managed = False
         db_table = "metadata_street"
         verbose_name = "街镇数据"
-        verbose_name_plural = verbose_name
-
-
-# 居委
-class Committee(models.Model):
-    is_delete = models.TextField(blank=True, null=True)  # 是否删除
-    district_id = models.TextField(blank=True, null=True)  # 区id
-    district_name = models.TextField("区名称", blank=True, null=True)
-    town_id = models.TextField(blank=True, null=True)  # 街道id
-    town_name = models.TextField("街道名称", blank=True, null=True)
-    name = models.CharField("居委名称", max_length=100, blank=True, null=True)
-
-    def __str__(self):
-        return self.name
-
-    class Meta:
-        managed = False
-        db_table = "metadata_committee"
-        verbose_name = "居委数据"
         verbose_name_plural = verbose_name

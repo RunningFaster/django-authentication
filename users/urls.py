@@ -10,9 +10,9 @@ common_urlpatterns = [
     path(r'refresh', views.AuthTokenViewSet.as_view({'post': 'refresh'}), name="刷新认证"),
     path(r'person', views.UserBaseViewSet.as_view({'get': 'retrieve_person'}), name="当期用户详情"),
 
-    path(r'district/list', views.DistrictViewSet.as_view({'get': 'list'}), name="区列表"),
-    path(r'street/list', views.StreetViewSet.as_view({'get': 'list'}), name="街道列表"),
-    path(r'committee/list', views.CommitteeViewSet.as_view({'get': 'list'}), name="居委列表"),
+    path(r'city/list', views.CityViewSet.as_view({'get': 'list'}), name="城市列表"),
+    path(r'district/list', views.DistrictViewSet.as_view({'get': 'list'}), name="区/县列表"),
+    path(r'street/list', views.StreetViewSet.as_view({'get': 'list'}), name="街道/乡镇列表"),
 
     path(r'permmenu', views.MenuViewSet.as_view({'get': 'perm_list'}), name="用户权限列表"),
     path(r'api/list', views.ApiViewSet.as_view({'get': 'list'}), name="后台接口列表"),
@@ -50,12 +50,4 @@ department_urlpatterns = [
     path(r'add', views.DepartmentViewSet.as_view({'post': 'create'}), name="新增部门"),
     path(r'delete/<int:pk>', views.DepartmentViewSet.as_view({'post': 'destroy'}), name="删除部门"),
     path(r'update/<int:pk>', views.DepartmentViewSet.as_view({'post': 'update'}), name="更新部门"),
-]
-
-event_urlpatterns = [
-    path(r'list', views.EventViewSet.as_view({'get': 'list'}), name="案件列表"),
-    path(r'info/<int:pk>', views.EventViewSet.as_view({'get': 'retrieve'}), name="案件详情"),
-    path(r'add', views.EventViewSet.as_view({'post': 'create'}), name="新增案件"),
-    path(r'delete/<int:pk>', views.EventViewSet.as_view({'post': 'destroy'}), name="删除案件"),
-    path(r'update/<int:pk>', views.EventViewSet.as_view({'post': 'update'}), name="更新案件"),
 ]

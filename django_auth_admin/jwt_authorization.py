@@ -1,18 +1,38 @@
 import time
 
-from rest_framework import exceptions
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import AnonymousUser
+from django.db.models import Prefetch
+from rest_framework import exceptions, serializers
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.permissions import BasePermission
 from rest_framework_jwt.serializers import VerifyJSONWebTokenSerializer
 from django.core.cache import cache
 
-from users.models import Role, Menu, RoleUserBase, RoleDepartment, RoleMenu, Api, MenuApi
+from users.models import Role, Menu, Api
+
+User = get_user_model()
 
 
 class RewriteVerifyJSONWebTokenSerializer(VerifyJSONWebTokenSerializer):
     """
     Check the veracity of an access token.
     """
+
+    def _check_user(self, payload):
+        try:
+            user = User.objects.select_related("department").prefetch_related(
+                Prefetch("role")
+            ).get(username=payload['username'])
+        except User.DoesNotExist:
+            msg = "User doesn't exist."
+            raise serializers.ValidationError(msg)
+
+        if not user.is_active:
+            msg = 'User account is disabled.'
+            raise serializers.ValidationError(msg)
+
+        return user
 
     def validate(self, attrs):
         token = attrs['token']
@@ -55,7 +75,7 @@ class JWTAuthentication(TokenAuthentication):
             # 防止使用 refreshToken 进行数据请求
             if is_refresh != bool(serializer_data['payload'].get('refresh')):
                 raise exceptions.AuthenticationFailed('认证失败')
-            # 验证token当前是否有效
+            # 验证当前token是否在黑名单
             if not self.verify_token(serializer_data['token'].split('.')[2], serializer_data['payload']):
                 raise exceptions.AuthenticationFailed('认证失败')
         except Exception:
@@ -69,8 +89,8 @@ class AdminPermission(BasePermission):
         超级管理员角色，只能操作
         """
         user = request.user
-        if user:
-            return True
+        if isinstance(user, AnonymousUser):
+            return False
         try:
             # 当前接口如果最后一位是可变参数，则需要排除掉此部分
             int(request.path[-1])
@@ -80,10 +100,9 @@ class AdminPermission(BasePermission):
         if "common" in req_path:
             # 通用接口，不受到权限的控制
             return True
-
         # 查询当前用户所拥有的 角色
-        role_id_list = list(RoleUserBase.objects.values_list("role", flat=True).filter(user_base=user.id))
-        if 1 not in role_id_list:
+        # roles = user.role.all().prefetch_related("menu__api")
+        if len([1]):
             # 超级管理员不受到权限控制
             return True
 
@@ -97,7 +116,7 @@ class AdminPermission(BasePermission):
         if not menu_id_list:
             return False
         # 查询 所有权限对应的 API 的信息
-        apis = MenuApi.objects.values_list("api", flat=True).filter(menu__in=menu_id_list)
-        if api_instance.id not in apis:
+        menu_api_list = MenuApi.objects.values_list("api", flat=True).filter(menu__in=menu_id_list, api=api_instance.id)
+        if not len(menu_api_list):
             return False
         return True
