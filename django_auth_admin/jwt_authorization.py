@@ -17,22 +17,17 @@ class RewriteVerifyJSONWebTokenSerializer(VerifyJSONWebTokenSerializer):
     Check the veracity of an access token.
     """
 
-    def _check_user(self, payload, is_common=0):
+    def _check_user(self, payload):
         try:
             """
             认证获取用户阶段，把用户所属的信息进行提前量缓存
                 role: 角色信息
                 role_menu_api: 用户所拥有的所有的api信息
-            如果当前接口是通用接口，则不需要请求额外的信息
             """
-            if is_common:
-                user = User.objects.get(username=payload['username'])
-            else:
-                user = User.objects.select_related("department").prefetch_related(
-                    Prefetch("role"),
-                    Prefetch("role__menu__api", to_attr="apis"),
-                    Prefetch("role__department", to_attr="departments"),
-                ).get(username=payload['username'])
+            user = User.objects.select_related("department").prefetch_related(
+                Prefetch("role__menu__api", to_attr="apis"),
+                Prefetch("role__department", to_attr="departments"),
+            ).get(username=payload['username'])
         except User.DoesNotExist:
             msg = "User doesn't exist."
             raise serializers.ValidationError(msg)
@@ -44,11 +39,10 @@ class RewriteVerifyJSONWebTokenSerializer(VerifyJSONWebTokenSerializer):
         return user
 
     def validate(self, attrs):
-        token = attrs['token'][:-1]
-        is_common = int(attrs['token'][-1])
+        token = attrs['token']
 
         payload = self._check_payload(token=token)
-        user = self._check_user(payload=payload, is_common=is_common)
+        user = self._check_user(payload=payload)
 
         return {
             'token': token,
@@ -77,7 +71,7 @@ class JWTAuthentication(TokenAuthentication):
             token = request.META['HTTP_AUTHORIZATION']
             # 处理通用接口
             serializer = RewriteVerifyJSONWebTokenSerializer(
-                data={'token': token + ("1" if "common" in request.path else "0")})
+                data={'token': token})
             serializer.is_valid(raise_exception=True)
             serializer_data = serializer.object
             if is_refresh:
@@ -103,6 +97,7 @@ class AdminPermission(BasePermission):
         user = request.user
         if isinstance(user, AnonymousUser):
             return False
+        # 当前api操作是否是针对指定对象的操作
         try:
             # 当前接口如果最后一位是可变参数，则需要排除掉此部分
             int(request.path[-1])
@@ -112,21 +107,8 @@ class AdminPermission(BasePermission):
         if "common" in req_path:
             # 通用接口，不受到权限的控制
             return True
-        # 查询当前用户所拥有的 角色
-        roles = user.role.all()
-        if (1, "超级管理员") in [(role.id, role.name) for role in roles]:
-            # 超级管理员不受到权限控制
-            return True
-
         # 查询当前角色所拥有的权限信息，以及权限对应的api的信息
-        api_list = []
-        for role in roles:
-            for menu in role.menu.all():
-                if menu.type != 2:
-                    continue
-                api_list += menu.apis
-                break
-
+        api_list = user.get_permission_api_list()
         # 接口权限过滤，判断当前用户是否拥有当前接口的操作权限
         for api in api_list:
             if (req_path, request.META['REQUEST_METHOD']) == (api.path, api.method):

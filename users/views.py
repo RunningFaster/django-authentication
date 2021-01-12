@@ -1,7 +1,9 @@
+import copy
 import time
 import datetime
 
 from django.db import transaction
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework_jwt.serializers import jwt_payload_handler, jwt_encode_handler
 from django.core.cache import cache
@@ -12,7 +14,7 @@ from django_auth_admin.jwt_authorization import JWTAuthentication, AdminPermissi
 from users.models import UserBase, Menu, District, Street, Role, Department, Api, City
 from users.serializers import ListUserBaseSerializer, UserBaseSerializer, LoginSerializer, MenuSerializer, \
     DistrictSerializer, StreetSerializer, RoleSerializer, DepartmentSerializer, ApiSerializer, \
-    ListMenuSerializer, ListRoleSerializer, CitySerializer
+    ListMenuSerializer, ListRoleSerializer, CitySerializer, PermmenuMenuSerializer
 from rest_framework_jwt.settings import api_settings
 
 expiration_delta = api_settings.JWT_EXPIRATION_DELTA
@@ -85,46 +87,56 @@ class AuthTokenViewSet(TokenViewSet):
 class UserBaseViewSet(AuthTokenViewSet):
     queryset = UserBase.objects.get_queryset().select_related("department").prefetch_related("role").order_by('id')
 
-    def filter_by_department(self, request):
-        req_user = request.user
+    def get_permissions_queryset(self, request):
+        user = request.user
         # 获取当前用户所拥有的所有的部门的权限信息
-        departments = sum([role.departments for role in req_user.role.all()], [])
+        departments = sum([role.departments for role in user.role.all()], [])
         if departments:
             # 部门权限信息不为空，根据部门信息进行过滤
             queryset = self.filter_queryset(self.get_queryset().filter(department__in=departments))
         else:
             # 部门权限信息为空，只能查看到自身的数据
-            queryset = self.filter_queryset(self.get_queryset().filter(id=req_user.id))
+            queryset = self.filter_queryset(self.get_queryset().filter(id=user.id))
         return queryset
+
+    def get_permissions_object(self, request):
+        user = request.user
+        permission_department_list = user.get_permission_department_list()
+        if not len(permission_department_list):
+            raise PermissionDenied('权限不足')
+        instance = self.get_object()
+        if instance.department not in permission_department_list:
+            raise PermissionDenied('权限不足')
+        return instance
 
     def list(self, request, *args, **kwargs):
         """
         根据用户所在的部门信息和角色拥有的部门权限信息，对数据进行过滤，
         """
-        queryset = self.filter_by_department(request)
+        queryset = self.get_permissions_queryset(request)
         # 结果集分页
         page = self.paginate_queryset(queryset)
         result_data = self.get_serializer(page, many=True).data
         return Response(dict(self.get_paginated_response(result_data), **{'msg': '查询成功'}))
 
     def create(self, request, *args, **kwargs):
-        req_user = request.user
+        user = request.user
         req_data = request.data.copy()
         # 头像处理
         if req_data.get('head_image'):
             req_data.pop('head_image')
-        req_data['create_user'] = req_data['update_user'] = req_user.id  # 创建用户
+        req_data['create_user'] = req_data['update_user'] = user.id  # 创建用户
         req_data['password'] = UserBase.set_password(req_data['password'])
-        instance = self.add_instance(req_user, self.get_serializer_class(), req_user)
+        instance = self.add_instance(user, self.get_serializer_class(), user)
         return Response({'id': instance.id, 'msg': '新增成功'})
 
     def update(self, request, *args, **kwargs):
-        req_user = request.user
+        user = request.user
+        instance = self.get_permissions_object(request)
         req_data = request.data.copy()
         if req_data.get('password'):
             req_data['password'] = UserBase.set_password(req_data['password'])
-        instance = self.get_object()
-        self.update_instance(req_data, self.get_serializer_class(), instance, req_user)
+        self.update_instance(req_data, self.get_serializer_class(), instance, user)
         return Response({'id': instance.id, 'msg': '更新成功'})
 
     def retrieve_person(self, request, *args, **kwargs):
@@ -140,7 +152,7 @@ class UserBaseViewSet(AuthTokenViewSet):
 
 
 class MenuViewSet(BaseViewSet):
-    queryset = Menu.objects.get_queryset().select_related("parent").order_by('order_num')
+    queryset = Menu.objects.get_queryset().select_related("parent").prefetch_related("api").order_by('order_num')
     authentication_classes = (JWTAuthentication,)
     permission_classes = (AdminPermission,)
 
@@ -149,36 +161,31 @@ class MenuViewSet(BaseViewSet):
             return ListMenuSerializer
         return MenuSerializer
 
+    def filter_by_menu(self, request):
+        user = request.user
+        # 获取当前用户所拥有的所有的权限信息
+        menus = sum([list(role.menu.all()) for role in user.role.all()], [])
+        if menus:
+            # 部门权限信息不为空，根据部门信息进行过滤
+            queryset = self.filter_queryset(self.get_queryset().filter(pk__in=[i.id for i in menus]))
+        else:
+            # 部门权限信息为空，只能查看到自身的数据
+            queryset = self.filter_queryset(self.get_queryset().filter(id=user.id))
+        return queryset
+
     def list(self, request, *args, **kwargs):
         # 查询包含分页的结果
-        queryset = self.filter_queryset(self.get_queryset())
-        return Response({'msg': '查询成功'})
+        queryset = self.filter_by_menu(request)
+        # 结果集分页
+        page = self.paginate_queryset(queryset)
+        result_data = self.get_serializer(page, many=True).data
+        return Response(dict(self.get_paginated_response(result_data), **{'msg': '查询成功'}))
 
-    def create(self, request, *args, **kwargs):
-        req_user = request.user
-        req_data = request.data.copy()
-        with transaction.atomic():
-            instance = self.add_instance(req_data, self.get_serializer_class(), request.user)
-            # 如果当前新增的类型是  权限，则需要对应操作  api-menu 表
-            if req_data['type'] == 2 and request.data.get('perms'):
-                Api.objects.values_list("path", "id").filter()
-                add_menu_api_list = [MenuApi(**dict(
-                    api=api,
-                    menu=instance.id,
-                    create_user=req_user.id,
-                    update_user=req_user.id,
-                )) for api in request.data['perms']]
-                MenuApi.objects.bulk_create(add_menu_api_list)
-            # todo: 新增权限时，需要把对应的权限新增到用户角色体系中
-            role_id_list = list(RoleUserBase.objects.values_list("role", flat=True).filter(user_base=req_user.id))
-            add_role_menu_list = [RoleMenu(**dict(
-                role=role_id,
-                menu=instance.id,
-                create_user=req_user.id,
-                update_user=req_user.id
-            )) for role_id in role_id_list]
-            RoleMenu.objects.bulk_create(add_role_menu_list)
-        return Response({'id': instance.id, 'msg': '新增成功'})
+    def retrieve(self, request, *args, **kwargs):
+        # 查询指定对象的详情
+        instance = self.get_object()
+        result_data = self.get_serializer(instance).data
+        return Response(dict(result_data, **{'msg': '查询成功'}))
 
     def destroy(self, request, *args, **kwargs):
         # 删除指定对象，需要级联删除所有的子对象
@@ -188,25 +195,33 @@ class MenuViewSet(BaseViewSet):
 
     def perm_list(self, request, *args, **kwargs):
         # 指定用户的的权限列表，包含页面权限和数据权限
-        req_user = request.user
+        user = request.user
+        roles = user.role.all()
+        menu_list, api_list = self.get_menus_api_list(roles)
         menus = []
-        perms = []
-        # 获取当前用户所拥有的所有的角色  ->  所对应的所有权限信息
-        role_id_list = list(RoleUserBase.objects.values_list('role', flat=True).filter(user_base=req_user.id))
-        menu_id_list = list(set(list(RoleMenu.objects.values_list("menu", flat=True).filter(role__in=role_id_list))))
-        # 当前用户拥有页面权限
-        if menu_id_list:
-            menu_instance_list = Menu.objects.filter(pk__in=menu_id_list)
-            # 目录和菜单对象
-            menus = ListMenuSerializer(menu_instance_list.all(), many=True).data
-            perms = list(
-                Api.objects.values_list("path", flat=True).filter(pk__in=list(
-                    MenuApi.objects.values_list("api", flat=True).filter(
-                        pk__in=list(menu_instance_list.values_list("id", flat=True).filter(type=2)))
-                ))
-            )
-            perms = list(Api.objects.values_list("format_path", flat=True).filter(is_common=0))
+        # 因为在序列化的时候，与查询时执行的 sql 不一致，无法获取到对应的queryset信息，只能自动组装信息
+        for menu in menu_list:
+            menu_dict = {}
+            for key in dict(PermmenuMenuSerializer().data):
+                menu_dict[key] = getattr(menu, key)
+            menu_dict["parent"] = menu.parent_id
+            menu_dict["perms"] = ",".join([api.format_path for api in menu.apis])
+            menus.append(menu_dict)
+        perms = [i.format_path for i in api_list]
         return Response({"data": {'menus': menus, 'perms': perms}, 'msg': '查询成功'})
+
+    @staticmethod
+    def get_menus_api_list(roles):
+        menu_list = []
+        api_list = []
+        for role in roles:
+            menus = role.menu.all()
+            menu_list += menus
+            for menu in menus:
+                if menu.type != 2:
+                    continue
+                api_list += menu.apis
+        return menu_list, api_list
 
 
 class RoleViewSet(BaseViewSet):
@@ -220,7 +235,7 @@ class RoleViewSet(BaseViewSet):
         return RoleSerializer
 
     def create(self, request, *args, **kwargs):
-        req_user = request.user
+        user = request.user
         req_data = request.data.copy()
         with transaction.atomic():
             instance = self.add_instance(req_data, self.get_serializer_class(), request.user)
@@ -228,8 +243,8 @@ class RoleViewSet(BaseViewSet):
                 add_role_menu_list = [RoleMenu(**dict(
                     role=instance.id,
                     menu=menu,
-                    create_user=req_user.id,
-                    update_user=req_user.id,
+                    create_user=user.id,
+                    update_user=user.id,
                 )) for menu in request.data['menus']]
                 RoleMenu.objects.bulk_create(add_role_menu_list)
         return Response({'id': instance.id, 'msg': '新增成功'})
@@ -287,7 +302,7 @@ class ApiViewSet(BaseViewSet):
         return ApiSerializer
 
     def list(self, request, *args, **kwargs):
-        req_user = request.user
+        user = request.user
         api_obj = API_PATH()
         api_list = api_obj.get_apis()
         # 查询当前数据库中的所有的api接口信息
@@ -298,7 +313,7 @@ class ApiViewSet(BaseViewSet):
             if info['path'] in now_api_list:
                 continue
             info['is_common'] = 0
-            info['create_user'] = info['update_user'] = req_user.id
+            info['create_user'] = info['update_user'] = user.id
             info['format_path'] = info['path'].split('/api/')[1].replace('/', ':')
             if "common" in info['path']:
                 info['is_common'] = 1

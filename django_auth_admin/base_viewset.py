@@ -18,6 +18,12 @@ class BaseViewSet(viewsets.ModelViewSet):
     ordering_fields = '__all__'
     search_fields = '__all__'
 
+    def get_permissions_queryset(self, request):
+        return True
+
+    def get_permissions_object(self, request):
+        return True
+
     def list(self, request, *args, **kwargs):
         # 查询包含分页的结果
         queryset = self.filter_queryset(self.get_queryset())

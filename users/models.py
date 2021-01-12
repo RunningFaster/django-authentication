@@ -102,6 +102,27 @@ class UserBase(BaseModel):
         """
         return True
 
+    def get_role_list(self):
+        return self.role.all()
+
+    def get_permission_api_list(self):
+        roles = self.get_role_list()
+        api_list = []
+        for role in roles:
+            menus = list(role.menu.all())
+            for menu in menus:
+                if menu.type != 2:
+                    continue
+                api_list += menu.apis if hasattr(menu, "apis") else menu.api
+        return api_list
+
+    def get_permission_department_list(self):
+        roles = self.get_role_list()
+        department_list = []
+        for role in roles:
+            department_list += role.departments if hasattr(role, "departments") else role.department
+        return department_list
+
 
 class Api(BaseModel):
     name = models.CharField("接口名称", max_length=200)

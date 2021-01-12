@@ -41,32 +41,23 @@ class ListUserBaseSerializer(serializers.ModelSerializer):
 
 
 class MenuSerializer(serializers.ModelSerializer):
-    apis = serializers.ListField(write_only=True, required=False)
+    api = serializers.ListField(write_only=True, required=False)
 
     class Meta:
         model = Menu
         fields = '__all__'
 
-    def validate(self, attrs):
-        # 校验apis信息是否符合规范
-        if attrs.get('apis') is not None:
-            if Api.objects.filter(pk__in=attrs['apis']).count() != len(attrs['apis']):
-                raise serializers.ValidationError("权限信息有误，请核实")
-            del attrs["apis"]
-        return attrs
+
+class PermmenuMenuSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Menu
+        exclude = ('parent', 'api')
 
 
 class ListMenuSerializer(serializers.ModelSerializer):
-    parent_name = serializers.SerializerMethodField()
-
     class Meta:
         model = Menu
         fields = '__all__'
-
-    def get_parent_name(self, obj):
-        if obj.parent:
-            return obj.parent.name
-        return ""
 
 
 class ListRoleSerializer(serializers.ModelSerializer):
