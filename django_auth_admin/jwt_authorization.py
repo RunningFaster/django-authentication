@@ -9,8 +9,6 @@ from rest_framework.permissions import BasePermission
 from rest_framework_jwt.serializers import VerifyJSONWebTokenSerializer
 from django.core.cache import cache
 
-from users.models import Role, Menu, Api
-
 User = get_user_model()
 
 
@@ -19,11 +17,22 @@ class RewriteVerifyJSONWebTokenSerializer(VerifyJSONWebTokenSerializer):
     Check the veracity of an access token.
     """
 
-    def _check_user(self, payload):
+    def _check_user(self, payload, is_common=0):
         try:
-            user = User.objects.select_related("department").prefetch_related(
-                Prefetch("role")
-            ).get(username=payload['username'])
+            """
+            认证获取用户阶段，把用户所属的信息进行提前量缓存
+                role: 角色信息
+                role_menu_api: 用户所拥有的所有的api信息
+            如果当前接口是通用接口，则不需要请求额外的信息
+            """
+            if is_common:
+                user = User.objects.get(username=payload['username'])
+            else:
+                user = User.objects.select_related("department").prefetch_related(
+                    Prefetch("role"),
+                    Prefetch("role__menu__api", to_attr="apis"),
+                    Prefetch("role__department", to_attr="departments"),
+                ).get(username=payload['username'])
         except User.DoesNotExist:
             msg = "User doesn't exist."
             raise serializers.ValidationError(msg)
@@ -35,10 +44,11 @@ class RewriteVerifyJSONWebTokenSerializer(VerifyJSONWebTokenSerializer):
         return user
 
     def validate(self, attrs):
-        token = attrs['token']
+        token = attrs['token'][:-1]
+        is_common = int(attrs['token'][-1])
 
         payload = self._check_payload(token=token)
-        user = self._check_user(payload=payload)
+        user = self._check_user(payload=payload, is_common=is_common)
 
         return {
             'token': token,
@@ -49,7 +59,8 @@ class RewriteVerifyJSONWebTokenSerializer(VerifyJSONWebTokenSerializer):
 
 class JWTAuthentication(TokenAuthentication):
 
-    def verify_token(self, token: str, payload: dict) -> bool:
+    @staticmethod
+    def verify_token(token: str, payload: dict) -> bool:
         # 判断当前 token 的时间是否已过期
         if int(time.time()) > payload['exp']:
             return False
@@ -63,9 +74,10 @@ class JWTAuthentication(TokenAuthentication):
         is_refresh = True if "refresh" in request.path else False
         # JWT token 方式校验
         try:
-            # 请求头中获取信息
             token = request.META['HTTP_AUTHORIZATION']
-            serializer = RewriteVerifyJSONWebTokenSerializer(data={'token': token})
+            # 处理通用接口
+            serializer = RewriteVerifyJSONWebTokenSerializer(
+                data={'token': token + ("1" if "common" in request.path else "0")})
             serializer.is_valid(raise_exception=True)
             serializer_data = serializer.object
             if is_refresh:
@@ -101,22 +113,22 @@ class AdminPermission(BasePermission):
             # 通用接口，不受到权限的控制
             return True
         # 查询当前用户所拥有的 角色
-        # roles = user.role.all().prefetch_related("menu__api")
-        if len([1]):
+        roles = user.role.all()
+        if (1, "超级管理员") in [(role.id, role.name) for role in roles]:
             # 超级管理员不受到权限控制
             return True
 
+        # 查询当前角色所拥有的权限信息，以及权限对应的api的信息
+        api_list = []
+        for role in roles:
+            for menu in role.menu.all():
+                if menu.type != 2:
+                    continue
+                api_list += menu.apis
+                break
+
         # 接口权限过滤，判断当前用户是否拥有当前接口的操作权限
-        try:
-            api_instance = Api.objects.get(path=req_path, method=request.META['REQUEST_METHOD'])
-        except Api.DoesNotExist:
-            raise exceptions.PermissionDenied()
-        # 查询当前角色 所拥有的的所有的权限信息
-        menu_id_list = list(set(list(RoleMenu.objects.values_list("menu", flat=True).filter(role__in=role_id_list))))
-        if not menu_id_list:
-            return False
-        # 查询 所有权限对应的 API 的信息
-        menu_api_list = MenuApi.objects.values_list("api", flat=True).filter(menu__in=menu_id_list, api=api_instance.id)
-        if not len(menu_api_list):
-            return False
-        return True
+        for api in api_list:
+            if (req_path, request.META['REQUEST_METHOD']) == (api.path, api.method):
+                return True
+        return False

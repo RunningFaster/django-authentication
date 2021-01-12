@@ -31,8 +31,6 @@ class ListUserBaseSerializer(serializers.ModelSerializer):
         exclude = ['password']
 
     def get_role_name(self, obj):
-        # name_list = ",".join(obj.role.all().values_list("name", flat=True))
-        # return name_list
         role_instance = obj.role.all()
         return ",".join([i.name for i in role_instance])
 

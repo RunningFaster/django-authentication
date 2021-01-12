@@ -2,7 +2,6 @@ import time
 import datetime
 
 from django.db import transaction
-from django.db.models import Prefetch
 from rest_framework.response import Response
 from rest_framework_jwt.serializers import jwt_payload_handler, jwt_encode_handler
 from django.core.cache import cache
@@ -84,13 +83,25 @@ class AuthTokenViewSet(TokenViewSet):
 
 
 class UserBaseViewSet(AuthTokenViewSet):
-    queryset = UserBase.objects.get_queryset().select_related("department").prefetch_related(
-        Prefetch("role", queryset=Role.objects.only('name'))
-    ).order_by('-id')
+    queryset = UserBase.objects.get_queryset().select_related("department").prefetch_related("role").order_by('id')
+
+    def filter_by_department(self, request):
+        req_user = request.user
+        # 获取当前用户所拥有的所有的部门的权限信息
+        departments = sum([role.departments for role in req_user.role.all()], [])
+        if departments:
+            # 部门权限信息不为空，根据部门信息进行过滤
+            queryset = self.filter_queryset(self.get_queryset().filter(department__in=departments))
+        else:
+            # 部门权限信息为空，只能查看到自身的数据
+            queryset = self.filter_queryset(self.get_queryset().filter(id=req_user.id))
+        return queryset
 
     def list(self, request, *args, **kwargs):
-        # 查询包含分页的结果，为了方便后续的数据展示处理，对外键进行冗余查询
-        queryset = self.filter_queryset(self.get_queryset())
+        """
+        根据用户所在的部门信息和角色拥有的部门权限信息，对数据进行过滤，
+        """
+        queryset = self.filter_by_department(request)
         # 结果集分页
         page = self.paginate_queryset(queryset)
         result_data = self.get_serializer(page, many=True).data

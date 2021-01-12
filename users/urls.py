@@ -26,6 +26,8 @@ user_urlpatterns = [
     path(r'add', views.UserBaseViewSet.as_view({'post': 'create'}), name="新增用户"),
     path(r'delete/<int:pk>', views.UserBaseViewSet.as_view({'post': 'destroy'}), name="删除用户"),
     path(r'update/<int:pk>', views.UserBaseViewSet.as_view({'post': 'update'}), name="更新用户"),
+
+    path(r'test', views.UserBaseViewSet.as_view({'get': 'test'}), name="当期用户详情"),
 ]
 
 menu_urlpatterns = [

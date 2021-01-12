@@ -32,23 +32,23 @@ class UserBase(BaseModel):
     city = models.ForeignKey(
         "City", related_name="user_base",
         on_delete=models.SET_NULL,
-        blank=True, null=True, verbose_name="城市")
+        blank=True, null=True, verbose_name="城市id")
     district = models.ForeignKey(
         "District", related_name="user_base",
         on_delete=models.SET_NULL,
-        blank=True, null=True, verbose_name="区/县")
+        blank=True, null=True, verbose_name="区/县id")
     street = models.ForeignKey(
         "Street", related_name="user_base",
         on_delete=models.SET_NULL,
-        blank=True, null=True, verbose_name="街道/乡镇")
+        blank=True, null=True, verbose_name="街道/乡镇id")
     # 冗余字段，下方字段为不经常修改的字段，如果有发生修改，则需要在所有的对应表中做对应的修改
     city_name = models.CharField("城市", max_length=50, default="", blank=True)
     district_name = models.CharField("区/县", max_length=50, default="", blank=True)
     street_name = models.CharField("街道/乡镇", max_length=50, default="", blank=True)
 
     department = models.ForeignKey(
-        "Department", on_delete=models.SET_NULL,
-        blank=True, null=True, verbose_name="部门")
+        "Department", on_delete=models.SET_DEFAULT,
+        blank=True, default=1, verbose_name="部门", db_index=True)
     role = models.ManyToManyField("Role", related_name="user_base")
     remark = models.CharField("备注", max_length=200, blank=True, default="")
 
@@ -165,6 +165,7 @@ class Role(BaseModel):
     menu = models.ManyToManyField(Menu, related_name="role")
     """
     角色和部门的关系，如果当前角色没有分配任何一个部门的数据权限，则默认为只查询与自身相关的
+    部门的配置信息，需要配置到最底层，在数据的过滤中，会根据最基础信息进行
     数据的过滤，是根据不同的业务需求进行过滤。。
     考虑到的情况是：一个小组长新增了一个业务数据，把这个数据分配给了小组下的某个员工，则该员工也能查看到当前数据，其他员工无法查看数据
     """
