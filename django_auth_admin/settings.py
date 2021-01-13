@@ -31,6 +31,7 @@ INSTALLED_APPS = [
 
     'debug_toolbar',
     'rest_framework',
+    'drf_yasg',
     'users',
     'event',
 ]
@@ -54,7 +55,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'django_auth_admin.jwt_middleware.GlobalMiddleware',
+    'django_auth_admin.base_middleware.GlobalMiddleware',
 ]
 
 ROOT_URLCONF = 'django_auth_admin.urls'
@@ -120,6 +121,11 @@ JWT_AUTH = {
     'JWT_EXPIRATION_DELTA': datetime.timedelta(seconds=100000),
 }
 
+# Swagger 配置
+SWAGGER_SETTINGS = {
+    'DEFAULT_AUTO_SCHEMA_CLASS': 'django_auth_admin.base_swagger.CustomSwaggerAutoSchema',
+}
+
 # Password validation
 # https://docs.djangoproject.com/en/2.2/ref/settings/#auth-password-validators
 
@@ -152,6 +158,7 @@ USE_TZ = False
 # https://docs.djangoproject.com/en/2.2/howto/static-files/
 
 STATIC_URL = '/static/'
+# STATIC_ROOT =  os.path.join(BASE_DIR,'static')
 STATICFILES_DIRS = [
     "./static/",
 ]

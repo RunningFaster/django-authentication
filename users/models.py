@@ -103,9 +103,17 @@ class UserBase(BaseModel):
         return True
 
     def get_role_list(self):
+        # 查询当前用户所拥有的角色
         return self.role.all()
 
+    def get_menus_list(self):
+        # 查询当前用户所拥有的权限
+        roles = self.get_role_list()
+        menu_list = sum([list(role.menu.all()) for role in roles], [])
+        return list(set(menu_list))
+
     def get_permission_api_list(self):
+        # 查询当前用户能操作的的api列表
         roles = self.get_role_list()
         api_list = []
         for role in roles:
@@ -114,9 +122,10 @@ class UserBase(BaseModel):
                 if menu.type != 2:
                     continue
                 api_list += menu.apis if hasattr(menu, "apis") else menu.api
-        return api_list
+        return list(set(api_list))
 
     def get_permission_department_list(self):
+        # 查询当前用户所能操作的部门的权限
         roles = self.get_role_list()
         department_list = []
         for role in roles:

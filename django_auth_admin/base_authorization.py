@@ -5,6 +5,7 @@ from django.contrib.auth.models import AnonymousUser
 from django.db.models import Prefetch
 from rest_framework import exceptions, serializers
 from rest_framework.authentication import TokenAuthentication
+from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.permissions import BasePermission
 from rest_framework_jwt.serializers import VerifyJSONWebTokenSerializer
 from django.core.cache import cache
@@ -80,12 +81,12 @@ class JWTAuthentication(TokenAuthentication):
                 serializer_data['payload']['token'] = token
             # 防止使用 refreshToken 进行数据请求
             if is_refresh != bool(serializer_data['payload'].get('refresh')):
-                raise exceptions.AuthenticationFailed('认证失败')
+                raise AuthenticationFailed('认证失败')
             # 验证当前token是否在黑名单
             if not self.verify_token(serializer_data['token'].split('.')[2], serializer_data['payload']):
-                raise exceptions.AuthenticationFailed('认证失败')
+                raise AuthenticationFailed('认证失败')
         except Exception:
-            raise exceptions.AuthenticationFailed('认证失败')
+            raise AuthenticationFailed('认证失败')
         return serializer_data['user'], serializer_data['payload']
 
 
