@@ -49,9 +49,21 @@ class MenuSerializer(serializers.ModelSerializer):
 
 
 class PermmenuMenuSerializer(serializers.ModelSerializer):
+    perms = serializers.SerializerMethodField()
+
     class Meta:
         model = Menu
-        exclude = ('parent', 'api')
+        exclude = ('api',)
+
+    def get_parent(self, obj):
+        return obj.parent.id if obj.parent else "null"
+
+    def get_perms(self, obj):
+        if hasattr(obj, "apis"):
+            apis = obj.apis
+        else:
+            apis = obj.api
+        return ",".join([api.format_path for api in apis if api.format_path])
 
 
 class ListMenuSerializer(serializers.ModelSerializer):

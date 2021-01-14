@@ -3,6 +3,7 @@ import time
 import datetime
 
 from django.db import transaction
+from django.db.models import Prefetch
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework_jwt.serializers import jwt_payload_handler, jwt_encode_handler
@@ -85,7 +86,7 @@ class AuthTokenViewSet(TokenViewSet):
 
 
 class UserBaseViewSet(AuthTokenViewSet):
-    queryset = UserBase.objects.get_queryset().select_related("department").prefetch_related("role").order_by('id')
+    queryset = UserBase.objects.get_queryset().select_related("department").prefetch_related("role")
 
     def get_permissions_queryset(self, request):
         user = request.user
@@ -221,25 +222,17 @@ class MenuViewSet(BaseViewSet):
         user = request.user
         menu_list = user.get_menus_list()
         api_list = user.get_permission_api_list()
-        menus = []
-        # 因为在序列化的时候，与查询时执行的 sql 不一致，无法获取到对应的queryset信息，只能自动组装信息
-        for menu in menu_list:
-            menu_dict = {}
-            for key in dict(PermmenuMenuSerializer().data):
-                menu_dict[key] = getattr(menu, key)
-            menu_dict["parent"] = menu.parent_id
-            menu_dict["perms"] = ",".join([api.format_path for api in menu.apis if api.format_path])
-            menus.append(menu_dict)
+        menus = PermmenuMenuSerializer(menu_list, many=True).data
         perms = [i.format_path for i in api_list if i.format_path]
         return Response({"data": {'menus': menus, 'perms': perms}, 'msg': '查询成功'})
 
 
 class RoleViewSet(BaseViewSet):
-    """
-    list:
+    queryset = Role.objects.get_queryset().prefetch_related(
+        Prefetch("menu"),
+        Prefetch("department"),
+    )
 
-    """
-    queryset = Role.objects.get_queryset().order_by('id')
     authentication_classes = (JWTAuthentication,)
     permission_classes = (AdminPermission,)
 
@@ -247,6 +240,14 @@ class RoleViewSet(BaseViewSet):
         if self.action in ['list', 'retrieve']:
             return ListRoleSerializer
         return RoleSerializer
+
+    def list(self, request, *args, **kwargs):
+        # 查询包含分页的结果
+        queryset = self.filter_queryset(self.get_queryset())
+        # 结果集分页
+        page = self.paginate_queryset(queryset)
+        result_data = self.get_serializer(page, many=True).data
+        return Response(dict(self.get_paginated_response(result_data), **{"msg": "查询成功"}))
 
     def create(self, request, *args, **kwargs):
         user = request.user

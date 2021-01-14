@@ -40,10 +40,8 @@ INSTALLED_APPS = [
 AUTH_USER_MODEL = 'users.UserBase'
 
 INTERNAL_IPS = [
-    '10.8.29.72',
-    '10.8.29.80',
-    '10.8.29.79',
-    '10.8.29.74',
+    '10.8.29.*',
+    '10.8.29.84'
 ]
 
 MIDDLEWARE = [

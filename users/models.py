@@ -12,14 +12,14 @@ class UserBase(BaseModel):
     """
     username = models.CharField("用户名", max_length=50, unique=True)
     password = models.CharField("密码", max_length=128)
-    name = models.CharField("昵称", max_length=50, db_index=True)
+    name = models.CharField("昵称", max_length=50)
     SEX = (
         (0, "女"),
         (1, "男"),
         (2, "未知"),
     )
     sex = models.IntegerField(choices=SEX, default=1, blank=True)
-    mobile = models.CharField("手机", max_length=11, default="", blank=True, db_index=True)
+    mobile = models.CharField("手机", max_length=11, default="", blank=True)
     email = models.EmailField("邮箱", null=True, blank=True)
     head_image = models.FileField(upload_to="image/%Y/%m", default="", max_length=1024, blank=True, null=True,
                                   verbose_name="头像")
@@ -48,7 +48,7 @@ class UserBase(BaseModel):
 
     department = models.ForeignKey(
         "Department", on_delete=models.SET_DEFAULT,
-        blank=True, default=1, verbose_name="部门", db_index=True)
+        blank=True, default=1, verbose_name="部门")
     role = models.ManyToManyField("Role", related_name="user_base")
     remark = models.CharField("备注", max_length=200, blank=True, default="")
 
@@ -65,6 +65,13 @@ class UserBase(BaseModel):
     class Meta:
         verbose_name = "用户表"
         verbose_name_plural = verbose_name
+        get_latest_by = "create_datetime"
+        ordering = ['create_datetime']
+        indexes = [
+            models.Index(fields=["name"]),
+            models.Index(fields=["mobile"]),
+            models.Index(fields=["department"]),
+        ]
 
     @staticmethod
     def set_password(raw_password):
@@ -110,7 +117,7 @@ class UserBase(BaseModel):
         # 查询当前用户所拥有的权限
         roles = self.get_role_list()
         menu_list = sum([list(role.menu.all()) for role in roles], [])
-        return list(set(menu_list))
+        return list(set([i for i in menu_list]))
 
     def get_permission_api_list(self):
         # 查询当前用户能操作的的api列表
@@ -207,6 +214,7 @@ class Role(BaseModel):
     class Meta:
         verbose_name = "角色表"
         verbose_name_plural = verbose_name
+        ordering = ['create_datetime']
 
 
 # 市
