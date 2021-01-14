@@ -29,6 +29,10 @@ class BaseViewSet(viewsets.ModelViewSet):
         # 用户可操作对象，如果权限不足，则返回403
         return True
 
+    # def dispatch(self, request, *args, **kwargs):
+    #     result = super(BaseViewSet, self).dispatch(self, request, *args, **kwargs)
+    #     return result
+
     def list(self, request, *args, **kwargs):
         # 查询包含分页的结果
         queryset = self.filter_queryset(self.get_queryset())

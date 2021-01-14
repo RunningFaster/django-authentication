@@ -3,9 +3,9 @@ import time
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
 from django.db.models import Prefetch
-from rest_framework import exceptions, serializers
+from rest_framework import serializers
 from rest_framework.authentication import TokenAuthentication
-from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.exceptions import AuthenticationFailed, MethodNotAllowed
 from rest_framework.permissions import BasePermission
 from rest_framework_jwt.serializers import VerifyJSONWebTokenSerializer
 from django.core.cache import cache
@@ -112,6 +112,8 @@ class AdminPermission(BasePermission):
         api_list = user.get_permission_api_list()
         # 接口权限过滤，判断当前用户是否拥有当前接口的操作权限
         for api in api_list:
-            if (req_path, request.META['REQUEST_METHOD']) == (api.path, api.method):
+            if req_path == api.path:
+                if request.META['REQUEST_METHOD'] != api.method:
+                    raise MethodNotAllowed(request.META['REQUEST_METHOD'])
                 return True
         return False

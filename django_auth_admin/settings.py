@@ -110,6 +110,16 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.JSONRenderer',
         'rest_framework.renderers.BrowsableAPIRenderer',
     ],
+    # 自定义认证
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'django_auth_admin.base_authorization.JWTAuthentication',
+    ],
+    # 自定义权限
+    'DEFAULT_PERMISSION_CLASSES': [
+        'django_auth_admin.base_authorization.AdminPermission',
+    ],
+    # 自定义异常信息处理
+    'EXCEPTION_HANDLER': 'django_auth_admin.base_exception.common_exception_handler'
 }
 
 JWT_AUTH = {

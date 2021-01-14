@@ -1,17 +1,14 @@
-import copy
 import time
 import datetime
 
-from django.db import transaction
 from django.db.models import Prefetch
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import *
 from rest_framework.response import Response
 from rest_framework_jwt.serializers import jwt_payload_handler, jwt_encode_handler
 from django.core.cache import cache
 
 from django_auth_admin.api_path import API_PATH
 from django_auth_admin.base_viewset import BaseViewSet
-from django_auth_admin.base_authorization import JWTAuthentication, AdminPermission
 from users.models import UserBase, Menu, District, Street, Role, Department, Api, City
 from users.serializers import ListUserBaseSerializer, UserBaseSerializer, LoginSerializer, MenuSerializer, \
     DistrictSerializer, StreetSerializer, RoleSerializer, DepartmentSerializer, ApiSerializer, \
@@ -37,11 +34,7 @@ class TokenViewSet(BaseViewSet):
     permission_classes = ()
 
     def get_serializer_class(self):
-        if self.action in ['list', 'retrieve', 'retrieve_person']:
-            return ListUserBaseSerializer
-        elif self.action == 'login':
-            return LoginSerializer
-        return UserBaseSerializer
+        return LoginSerializer
 
     # 登录
     def login(self, request, *args, **kwargs):
@@ -49,23 +42,23 @@ class TokenViewSet(BaseViewSet):
         username = req_data.get('username')
         password = req_data.get('password')
         if not username or not password:
-            raise AttributeError("参数校验错误")
+            raise ValidationError("参数校验错误")
         instance_list = UserBase.objects.filter(username=req_data['username'])
         if not len(instance_list):
-            raise AttributeError("登陆失败，用户名不存在")
+            raise AuthenticationFailed("登陆失败，用户名不存在")
         instance = instance_list.first()
         if not instance.check_password(password):
-            raise AttributeError("登陆失败，密码错误")
+            raise AuthenticationFailed("登陆失败，密码错误")
         if not instance.is_active:
-            raise AttributeError("账户状态异常，无法登陆，请联系管理员")
+            raise AuthenticationFailed("账户状态异常，无法登陆，请联系管理员")
         token = encode_handler(instance)
         refresh_token = encode_handler(instance, True)
-        return Response({'expire': expiration_delta, 'token': token, 'refresh_token': refresh_token})
+        return Response(
+            {"data": {'expire': expiration_delta, 'token': token, 'refresh_token': refresh_token}, "msg": "登录成功",
+             "status": 1})
 
 
 class AuthTokenViewSet(TokenViewSet):
-    authentication_classes = (JWTAuthentication,)
-    permission_classes = (AdminPermission,)
 
     # 刷新认证
     def refresh(self, request, *args, **kwargs):
@@ -75,18 +68,28 @@ class AuthTokenViewSet(TokenViewSet):
         # refresh_token 只能被使用一次，使用过后需要添加到 cache 黑名单
         cache.set("auth-black:token:{}".format(payload['refresh_token'].split('.')[2]), 'token',
                   timeout=request.auth['exp'] - int(time.time()) + 5)
-        return Response({'expire': expiration_delta, 'token': token, 'refresh_token': refresh_token})
+        return Response(
+            {"data": {'expire': expiration_delta, 'token': token, 'refresh_token': refresh_token}, "msg": "刷新成功",
+             "status": 1})
 
     # 退出登录
     def logout(self, request, *args, **kwargs):
         payload = request.auth
         cache.set("auth-black:token:{}".format(payload['token'].split('.')[2]), 'token',
                   timeout=request.auth['exp'] - int(time.time()) + 5)
-        return Response()
+        return Response({"msg": "退出成功", "status": 1})
 
 
-class UserBaseViewSet(AuthTokenViewSet):
+class UserBaseViewSet(BaseViewSet):
+    """
+    list: 根据用户所在的部门信息和角色拥有的部门权限信息，对数据进行过滤
+    """
     queryset = UserBase.objects.get_queryset().select_related("department").prefetch_related("role")
+
+    def get_serializer_class(self):
+        if self.action in ['list', 'retrieve', 'retrieve_person']:
+            return ListUserBaseSerializer
+        return UserBaseSerializer
 
     def get_permissions_queryset(self, request):
         user = request.user
@@ -110,24 +113,21 @@ class UserBaseViewSet(AuthTokenViewSet):
             return instance
         if instance.department not in permission_department_list:
             # 当前用户所用于的部门操作权限，以及当前数据所在的部门
-            raise PermissionError('你没有操作该部门数据的权限')
+            raise PermissionDenied('你没有操作该部门数据的权限')
         return instance
 
     def list(self, request, *args, **kwargs):
-        """
-        根据用户所在的部门信息和角色拥有的部门权限信息，对数据进行过滤，
-        """
         queryset = self.get_permissions_queryset(request)
         # 结果集分页
         page = self.paginate_queryset(queryset)
         result_data = self.get_serializer(page, many=True).data
-        return Response(self.get_paginated_response(result_data))
+        return Response(dict(self.get_paginated_response(result_data), **{"msg": "查询成功", "status": 1}))
 
     def retrieve(self, request, *args, **kwargs):
         # 查询指定对象的详情
         instance = self.get_permissions_object(request)
         result_data = self.get_serializer(instance).data
-        return Response(result_data)
+        return Response({"data": result_data, "msg": "查询成功", "status": 1})
 
     def create(self, request, *args, **kwargs):
         user = request.user
@@ -143,7 +143,7 @@ class UserBaseViewSet(AuthTokenViewSet):
         req_data['create_user'] = req_data['update_user'] = user.id  # 创建用户
         req_data['password'] = UserBase.set_password(req_data['password'])
         instance = self.add_instance(req_data, self.get_serializer_class(), user)
-        return Response({'id': instance.id})
+        return Response({"data": {'id': instance.id}, "msg": "新增成功", "status": 1})
 
     def update(self, request, *args, **kwargs):
         user = request.user
@@ -152,24 +152,22 @@ class UserBaseViewSet(AuthTokenViewSet):
         if req_data.get('password'):
             req_data['password'] = UserBase.set_password(req_data['password'])
         self.update_instance(req_data, self.get_serializer_class(), instance, user)
-        return Response({'id': instance.id})
+        return Response({'id': instance.id, "msg": "更新成功", "status": 1})
 
     def retrieve_person(self, request, *args, **kwargs):
         instance = request.user
         result_data = self.get_serializer(instance).data
-        return Response(result_data)
+        return Response({"data": result_data, "msg": "查询成功", "status": 1})
 
     def destroy(self, request, *args, **kwargs):
         # 删除指定对象，对应删除  role
         instance = self.get_permissions_object(request)
         instance.delete()
-        return Response()
+        return Response({"msg": "删除成功", "status": 1})
 
 
 class MenuViewSet(BaseViewSet):
     queryset = Menu.objects.get_queryset().select_related("parent").prefetch_related("api").order_by('order_num')
-    authentication_classes = (JWTAuthentication,)
-    permission_classes = (AdminPermission,)
 
     def get_serializer_class(self):
         if self.action in ['list', 'retrieve']:
@@ -203,19 +201,19 @@ class MenuViewSet(BaseViewSet):
         # 结果集分页
         page = self.paginate_queryset(queryset)
         result_data = self.get_serializer(page, many=True).data
-        return Response(dict(self.get_paginated_response(result_data), **{'msg': '查询成功'}))
+        return Response(dict(self.get_paginated_response(result_data), **{'msg': '查询成功', "status": 1}))
 
     def retrieve(self, request, *args, **kwargs):
         # 查询指定对象的详情
         instance = self.get_permissions_object(request)
         result_data = self.get_serializer(instance).data
-        return Response(dict(result_data, **{'msg': '查询成功'}))
+        return Response(dict(result_data, **{'msg': '查询成功', "status": 1}))
 
     def destroy(self, request, *args, **kwargs):
         # 删除指定对象，需要级联删除所有的子对象
         instance = self.get_permissions_object(request)
         instance.delete()
-        return Response({'msg': '删除成功'})
+        return Response({'msg': '删除成功', "status": 1})
 
     def perm_list(self, request, *args, **kwargs):
         # 指定用户的的权限列表，包含页面权限和数据权限
@@ -224,7 +222,7 @@ class MenuViewSet(BaseViewSet):
         api_list = user.get_permission_api_list()
         menus = PermmenuMenuSerializer(menu_list, many=True).data
         perms = [i.format_path for i in api_list if i.format_path]
-        return Response({"data": {'menus': menus, 'perms': perms}, 'msg': '查询成功'})
+        return Response({"data": {'menus': menus, 'perms': perms}, 'msg': '查询成功', "status": 1})
 
 
 class RoleViewSet(BaseViewSet):
@@ -232,9 +230,6 @@ class RoleViewSet(BaseViewSet):
         Prefetch("menu"),
         Prefetch("department"),
     )
-
-    authentication_classes = (JWTAuthentication,)
-    permission_classes = (AdminPermission,)
 
     def get_serializer_class(self):
         if self.action in ['list', 'retrieve']:
@@ -247,26 +242,24 @@ class RoleViewSet(BaseViewSet):
         # 结果集分页
         page = self.paginate_queryset(queryset)
         result_data = self.get_serializer(page, many=True).data
-        return Response(dict(self.get_paginated_response(result_data), **{"msg": "查询成功"}))
+        return Response(dict(self.get_paginated_response(result_data), **{"msg": "查询成功", "status": 1}))
 
     def create(self, request, *args, **kwargs):
         user = request.user
         req_data = request.data
         instance = self.add_instance(req_data, self.get_serializer_class(), user)
-        return Response({'id': instance.id, 'msg': '新增成功'})
+        return Response({'id': instance.id, 'msg': '新增成功', "status": 1})
 
     def retrieve(self, request, *args, **kwargs):
         # 查询角色详情
         instance = self.get_object()
         result_data = self.get_serializer(instance).data
         result_data['menu_id_list'] = result_data['menu_id_list'].split(',') if result_data['menu_id_list'] else []
-        return Response(dict(result_data, **{'msg': '查询成功'}))
+        return Response(dict(result_data, **{'msg': '查询成功', "status": 1}))
 
 
 class DepartmentViewSet(BaseViewSet):
     queryset = Department.objects.get_queryset().order_by('id')
-    authentication_classes = (JWTAuthentication,)
-    permission_classes = (AdminPermission,)
 
     def get_serializer_class(self):
         return DepartmentSerializer
@@ -274,8 +267,6 @@ class DepartmentViewSet(BaseViewSet):
 
 class CityViewSet(BaseViewSet):
     queryset = City.objects.get_queryset().order_by('id')
-    authentication_classes = (JWTAuthentication,)
-    permission_classes = (AdminPermission,)
 
     def get_serializer_class(self):
         return CitySerializer
@@ -283,8 +274,6 @@ class CityViewSet(BaseViewSet):
 
 class DistrictViewSet(BaseViewSet):
     queryset = District.objects.get_queryset().order_by('id')
-    authentication_classes = (JWTAuthentication,)
-    permission_classes = (AdminPermission,)
 
     def get_serializer_class(self):
         return DistrictSerializer
@@ -292,8 +281,6 @@ class DistrictViewSet(BaseViewSet):
 
 class StreetViewSet(BaseViewSet):
     queryset = Street.objects.get_queryset().order_by('id')
-    authentication_classes = (JWTAuthentication,)
-    permission_classes = (AdminPermission,)
 
     def get_serializer_class(self):
         return StreetSerializer
@@ -301,8 +288,6 @@ class StreetViewSet(BaseViewSet):
 
 class ApiViewSet(BaseViewSet):
     queryset = Api.objects.get_queryset().order_by('id')
-    authentication_classes = (JWTAuthentication,)
-    permission_classes = (AdminPermission,)
 
     def get_serializer_class(self):
         return ApiSerializer
