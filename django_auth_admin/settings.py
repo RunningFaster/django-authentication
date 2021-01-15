@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     'debug_toolbar',
     'rest_framework',
     'drf_yasg',
+    'mptt',
     'users',
     'event',
 ]
@@ -39,10 +40,7 @@ INSTALLED_APPS = [
 # 替换Django默认的用户模型
 AUTH_USER_MODEL = 'users.UserBase'
 
-INTERNAL_IPS = [
-    '10.8.29.*',
-    '10.8.29.84'
-]
+INTERNAL_IPS = ['10.8.29.{}'.format(str(i)) for i in range(1, 256)]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -91,6 +89,14 @@ DATABASES = {
         'OPTIONS': {
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
         }
+    }
+}
+
+# 设置文件缓存
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+        'LOCATION': '/var/tmp/django_auth_admin_cache',
     }
 }
 

@@ -6,6 +6,7 @@ from users import views
 # 通用接口，不在权限分配管理系统中
 common_urlpatterns = [
     path(r'login', views.TokenViewSet.as_view({'post': 'login'}), name="登录"),
+    path(r'test', views.TokenViewSet.as_view({'get': 'test_tree'}), name="登录"),
     path(r'logout', views.AuthTokenViewSet.as_view({'post': 'logout'}), name="退出登录"),
     path(r'refresh', views.AuthTokenViewSet.as_view({'post': 'refresh'}), name="刷新认证"),
     path(r'person', views.UserBaseViewSet.as_view({'get': 'retrieve_person'}), name="当期用户详情"),

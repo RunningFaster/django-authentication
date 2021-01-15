@@ -2,6 +2,7 @@ import time
 import datetime
 
 from django.db.models import Prefetch
+from django.views.decorators.cache import cache_page
 from rest_framework.exceptions import *
 from rest_framework.response import Response
 from rest_framework_jwt.serializers import jwt_payload_handler, jwt_encode_handler
@@ -9,7 +10,7 @@ from django.core.cache import cache
 
 from django_auth_admin.api_path import API_PATH
 from django_auth_admin.base_viewset import BaseViewSet
-from users.models import UserBase, Menu, District, Street, Role, Department, Api, City
+from users.models import UserBase, Menu, District, Street, Role, Department, Api, City, TreeTest
 from users.serializers import ListUserBaseSerializer, UserBaseSerializer, LoginSerializer, MenuSerializer, \
     DistrictSerializer, StreetSerializer, RoleSerializer, DepartmentSerializer, ApiSerializer, \
     ListMenuSerializer, ListRoleSerializer, CitySerializer, PermmenuMenuSerializer
@@ -35,6 +36,22 @@ class TokenViewSet(BaseViewSet):
 
     def get_serializer_class(self):
         return LoginSerializer
+
+    def test_tree(self, request, *args, **kwargs):
+        res = {}
+        instance = TreeTest.objects.get(pk=7)
+        # 返回一个包含所有当前实例祖宗的queryset
+        ancetors = instance.get_ancestors(ascending=False, include_self=False)
+        res["ancetors"] = [i.name for i in ancetors]
+        # 返回包换当前实例的直接孩子的queryset(即下一级所有的子节点)，按树序排列
+        children = instance.get_children()
+        res["children"] = [i.name for i in children]
+        # 返回当前实例的所有子节点，按树序排列
+        descendants = instance.get_descendants(include_self=False)
+        res["descendants"] = [i.name for i in descendants]
+        family = instance.get_family()
+        res["family"] = [i.name for i in family]
+        return Response(res)
 
     # 登录
     def login(self, request, *args, **kwargs):
@@ -82,7 +99,7 @@ class AuthTokenViewSet(TokenViewSet):
 
 class UserBaseViewSet(BaseViewSet):
     """
-    list: 根据用户所在的部门信息和角色拥有的部门权限信息，对数据进行过滤
+    list: 根据用户所在的部门信息和角色拥有的部门权限信息，对数据进行过滤，只能查询到自己部门下的用户列表
     """
     queryset = UserBase.objects.get_queryset().select_related("department").prefetch_related("role")
 
@@ -94,10 +111,10 @@ class UserBaseViewSet(BaseViewSet):
     def get_permissions_queryset(self, request):
         user = request.user
         # 获取当前用户所拥有的所有的部门的权限信息
-        departments = sum([role.departments for role in user.role.all()], [])
-        if departments:
+        permission_department_list = user.get_permission_department_list()
+        if permission_department_list:
             # 部门权限信息不为空，根据部门信息进行过滤
-            queryset = self.filter_queryset(self.get_queryset().filter(department__in=departments))
+            queryset = self.filter_queryset(self.get_queryset().filter(department__in=permission_department_list))
         else:
             # 部门权限信息为空，只能查看到自身的数据
             queryset = self.filter_queryset(self.get_queryset().filter(id=user.id))
@@ -115,6 +132,7 @@ class UserBaseViewSet(BaseViewSet):
             # 当前用户所用于的部门操作权限，以及当前数据所在的部门
             raise PermissionDenied('你没有操作该部门数据的权限')
         return instance
+
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_permissions_queryset(request)

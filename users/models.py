@@ -1,6 +1,8 @@
 from django.contrib.auth.hashers import make_password, check_password
 from django.contrib.auth.models import AbstractUser, UserManager
 from django.db import models
+from mptt.fields import TreeForeignKey
+from mptt.models import MPTTModel
 
 from django_auth_admin.base_model import BaseModel
 
@@ -47,8 +49,7 @@ class UserBase(BaseModel):
     street_name = models.CharField("街道/乡镇", max_length=50, default="", blank=True)
 
     department = models.ForeignKey(
-        "Department", on_delete=models.SET_DEFAULT,
-        blank=True, default=1, verbose_name="部门")
+        "Department", on_delete=models.SET_DEFAULT, blank=True, default=1, verbose_name="部门")
     role = models.ManyToManyField("Role", related_name="user_base")
     remark = models.CharField("备注", max_length=200, blank=True, default="")
 
@@ -271,3 +272,8 @@ class Street(models.Model):
         db_table = "metadata_street"
         verbose_name = "街镇数据"
         verbose_name_plural = verbose_name
+
+
+class TreeTest(MPTTModel):
+    name = models.CharField("TEST", max_length=1024)
+    parent = TreeForeignKey("self", blank=True, null=True, related_name="children", on_delete=models.DO_NOTHING)

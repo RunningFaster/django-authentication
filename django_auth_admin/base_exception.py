@@ -21,7 +21,7 @@ def common_exception_handler(exc, context):
     elif isinstance(exc, MethodNotAllowed):
         status_code = status.HTTP_403_FORBIDDEN
     elif isinstance(exc, ValidationError):
-        msg = "".join(exc.messages)
+        msg = "".join(["{}-{}".format(str(key), str(value[0])) for key, value in exc.message_dict.items()])
     else:
         # 在此处补充自定义的异常处理
         print('[%s]: %s' % (context['view'], exc))
