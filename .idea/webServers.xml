@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="8451ebf5-ccf4-4e02-a76b-391a2fed121a" name="DjangoAuthentication" url="http://118.25.75.75">
+        <fileTransfer host="118.25.75.75" port="22" rootFolder="/home/rj/django_authentication" accessType="SFTP">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+          <option name="port" value="22" />
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
