@@ -1,4 +1,4 @@
-# !/usr/bin/env Python3
+# !/usr/bin/settings Python3
 # -*- coding: utf-8 -*-
 # @Author   : Friday
 # @FILE     : api_path.py

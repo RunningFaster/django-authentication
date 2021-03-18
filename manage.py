@@ -1,11 +1,11 @@
-#!/usr/bin/env python
+#!/usr/bin/settings python
 """Django's command-line utility for administrative tasks."""
 import os
 import sys
 
 
 def main():
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'django_authentication.env.pro')
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'django_authentication.settings.pro')
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:
