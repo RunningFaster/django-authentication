@@ -1,21 +1,17 @@
-"""django_authentication URL Configuration
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/2.2/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
+from django.conf.urls import url
+from django.urls import include, path
+import debug_toolbar
+from organization.urls import user_urlpatterns, menu_urlpatterns, common_urlpatterns, role_urlpatterns, department_urlpatterns
 from django.contrib import admin
-from django.urls import path
 
 urlpatterns = [
+    # 普通接口
+    path(r'api/sys/user/', include(user_urlpatterns), name="用户"),
+    path(r'api/sys/menu/', include(menu_urlpatterns), name="权限"),
+    path(r'api/sys/role/', include(role_urlpatterns), name="角色"),
+    path(r'api/sys/department/', include(department_urlpatterns), name="部门"),
+    # 系统级别接口，不受权限控制，通用权限，common涉及到 权限判断，该字段不能替换
+    path(r'api/common/', include(common_urlpatterns), name="通用"),
+    path('__debug__/', include(debug_toolbar.urls)),
     path('admin/', admin.site.urls),
 ]
