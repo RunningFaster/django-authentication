@@ -27,8 +27,9 @@ python manage.py migrate
 
 ### 认证
 
-> 设计图
-url: http://assets.processon.com/chart_image/5feac0091e08531ceabbd41d.png
+> jwt认证流程图
+http://assets.processon.com/chart_image/5feac0091e08531ceabbd41d.png
+![设计图](http://assets.processon.com/chart_image/5feac0091e08531ceabbd41d.png)
 
 ### 权限
 
