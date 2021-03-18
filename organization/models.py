@@ -35,11 +35,6 @@ class UserBase(BaseModel):
     role = models.ManyToManyField("Role", related_name="user_base")
     remark = models.CharField("备注", max_length=200, blank=True, default="")
 
-    # 在重写Django默认User模型时，需要当前三个属性
-    EMAIL_FIELD = "email"
-    USERNAME_FIELD = "username"
-    REQUIRED_FIELDS = ["email"]
-
     def __str(self):
         return self.username
 
@@ -73,24 +68,6 @@ class UserBase(BaseModel):
             self.save(update_fields=["password"])
 
         return check_password(raw_password, self.password, setter)
-
-    # 在重写Django默认User模型时，需要引用此方法
-    @property
-    def is_anonymous(self):
-        """
-        Always return False. This is a way of comparing User objects to
-        anonymous users.
-        """
-        return False
-
-    # 在重写Django默认User模型时，需要引用此方法
-    @property
-    def is_authenticated(self):
-        """
-        Always return True. This is a way to tell if the user has been
-        authenticated in templates.
-        """
-        return True
 
     def get_role_list(self):
         # 查询当前用户所拥有的角色
