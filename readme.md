@@ -6,7 +6,29 @@
 * 认证使用 JWT，包含token发放和token refresh，token主动失效
 * 权限包含路由权限和接口权限
 
+## 项目启动
+
+> 安装环境
+
+```shell script
+pip3 install -r requirment.txt
+```
+
+> 添加mysql配置信息
+
+settings/dev.py
+
+> 执行迁移命令
+
+```shell script
+python manage.py makemigrations
+python manage.py migrate
+```
+
 ### 认证
+
+> 设计图
+url: http://assets.processon.com/chart_image/5feac0091e08531ceabbd41d.png
 
 ### 权限
 
