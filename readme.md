@@ -25,6 +25,12 @@ python manage.py makemigrations
 python manage.py migrate
 ```
 
+### ERP
+
+> 模型关系图
+https://github.com/RunningFaster/DjangoAuthAdmin/tree/master/static/github/ERP.png
+![ERP](https://github.com/RunningFaster/DjangoAuthAdmin/tree/master/static/github/ERP.png)
+
 ### 认证
 
 > jwt认证流程图
