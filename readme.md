@@ -28,8 +28,8 @@ python manage.py migrate
 ### ERP
 
 > 模型关系图
-https://github.com/RunningFaster/DjangoAuthAdmin/tree/master/static/github/ERP.png
-![ERP](https://github.com/RunningFaster/DjangoAuthAdmin/tree/master/static/github/ERP.png)
+https://github.com/RunningFaster/DjangoAuthAdmin/blob/master/static/github/ERP.png
+![image](https://github.com/RunningFaster/DjangoAuthAdmin/blob/master/static/github/ERP.png)
 
 ### 认证
 
