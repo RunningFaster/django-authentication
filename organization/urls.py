@@ -11,7 +11,7 @@ common_urlpatterns = [
     path(r'person', views.UserBaseViewSet.as_view({'get': 'retrieve_person'}), name="当期用户详情"),
 
     path(r'permmenu', views.MenuViewSet.as_view({'get': 'perm_list'}), name="用户权限列表"),
-    path(r'api/list', views.ApiViewSet.as_view({'get': 'list'}), name="后台接口列表"),
+    path(r'api_list', views.ApiViewSet.as_view({'get': 'list'}), name="后台接口列表"),
 ]
 
 # 业务接口，通常根据角色进行对应的分配

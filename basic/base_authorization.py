@@ -10,7 +10,7 @@ from rest_framework.permissions import BasePermission
 from rest_framework_jwt.serializers import VerifyJSONWebTokenSerializer
 from django.core.cache import cache
 
-User = get_user_model()
+from organization.models import UserBase
 
 
 class RewriteVerifyJSONWebTokenSerializer(VerifyJSONWebTokenSerializer):
@@ -26,11 +26,11 @@ class RewriteVerifyJSONWebTokenSerializer(VerifyJSONWebTokenSerializer):
                 role__menu__api: 用户所拥有的所有的api信息
                 role__department: 用户所在的部门信息
             """
-            user = User.objects.select_related("department").prefetch_related(
+            user = UserBase.objects.select_related("department").prefetch_related(
                 Prefetch("role__menu__api", to_attr="apis"),
                 Prefetch("role__department", to_attr="departments"),
             ).get(username=payload['username'])
-        except User.DoesNotExist:
+        except UserBase.DoesNotExist:
             msg = "User doesn't exist."
             raise serializers.ValidationError(msg)
 

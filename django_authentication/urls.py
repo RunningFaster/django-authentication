@@ -1,7 +1,9 @@
-from django.conf.urls import url
 from django.urls import include, path
 import debug_toolbar
-from organization.urls import user_urlpatterns, menu_urlpatterns, common_urlpatterns, role_urlpatterns, department_urlpatterns
+from rest_framework.documentation import include_docs_urls
+
+from organization.urls import user_urlpatterns, menu_urlpatterns, common_urlpatterns, role_urlpatterns, \
+    department_urlpatterns
 from django.contrib import admin
 
 urlpatterns = [
@@ -14,4 +16,5 @@ urlpatterns = [
     path(r'api/common/', include(common_urlpatterns), name="通用"),
     path('__debug__/', include(debug_toolbar.urls)),
     path('admin/', admin.site.urls),
+    path('docs/', include_docs_urls(title="组织架构")),
 ]

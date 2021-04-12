@@ -1,5 +1,5 @@
 from django.contrib.auth.hashers import make_password, check_password
-from django.contrib.auth.models import AbstractUser, UserManager
+from django.contrib.auth.models import UserManager
 from django.db import models
 from mptt.models import MPTTModel
 
@@ -142,7 +142,7 @@ class Menu(BaseModel):
         verbose_name_plural = verbose_name
 
 
-class Department(BaseModel):
+class Department(MPTTModel):
     name = models.CharField("名称", max_length=200)
     nick_name = models.CharField("别名", max_length=200, blank=True, null=True)
     full_name = models.CharField("全称", max_length=200, blank=True, null=True)

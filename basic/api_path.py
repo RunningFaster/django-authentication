@@ -51,7 +51,7 @@ class API_PATH:
         :param endpoint:
         :return:
         """
-        #todo: 新增返回字段信息
+        # todo: 新增返回字段信息
         path, method, name = endpoint.values()
         method_priority = {
             'GET': 0,
@@ -123,7 +123,7 @@ class API_PATH:
                                     # "describe": str(callback.initkwargs['description']).strip().split('\n')[0] if
                                     # callback.initkwargs.get('description') else
                                     # str(callback.__doc__).strip().split('\n')[0],
-                                    #todo: 从 name 中获取备注信息
+                                    # todo: 从 name 中获取备注信息
                                     "name": pattern.name,
                                     "method": method}
                         api_endpoints.append(endpoint)
