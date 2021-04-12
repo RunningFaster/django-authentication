@@ -46,6 +46,7 @@ python manage.py migrate
 ### ERP
 
 > 模型关系图
+
 https://github.com/RunningFaster/django-authentication/blob/master/static/github/ERP.png
 ![image](https://github.com/RunningFaster/django-authentication/blob/master/static/github/ERP.png)
 
