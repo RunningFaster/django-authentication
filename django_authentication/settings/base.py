@@ -12,6 +12,7 @@ DEBUG = True
 ALLOWED_HOSTS = ["*"]
 
 INSTALLED_APPS = [
+    'simpleui',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -24,6 +25,7 @@ INSTALLED_APPS = [
     'corsheaders',  # 跨域方案
 
     'organization',  # 组织架构
+    'test_app',
 ]
 
 INTERNAL_IPS = ['127.0.0.1']
@@ -96,6 +98,8 @@ REST_FRAMEWORK = {
     # 自定义分页工具
     'DEFAULT_PAGINATION_CLASS': 'basic.page_pagination.PaginationResponse',
     'PAGE_SIZE': 10,
+    # 新版drf schema_class默认用的是rest_framework.schemas.openapi.AutoSchema
+    'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema',
     # 允许的请求数据格式
     'DEFAULT_PARSER_CLASSES': [
         'rest_framework.parsers.JSONParser',
@@ -107,14 +111,14 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.JSONRenderer',
         'rest_framework.renderers.BrowsableAPIRenderer',
     ],
-    # 自定义认证
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'basic.base_authorization.JWTAuthentication',
-    ],
-    # 自定义权限
-    'DEFAULT_PERMISSION_CLASSES': [
-        'basic.base_authorization.AdminPermission',
-    ],
+    # # 自定义认证
+    # 'DEFAULT_AUTHENTICATION_CLASSES': [
+    #     'basic.base_authorization.JWTAuthentication',
+    # ],
+    # # 自定义权限
+    # 'DEFAULT_PERMISSION_CLASSES': [
+    #     'basic.base_authorization.AdminPermission',
+    # ],
     # 自定义异常信息处理
     'EXCEPTION_HANDLER': 'basic.base_exception.common_exception_handler'
 }

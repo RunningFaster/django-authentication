@@ -6,6 +6,24 @@
 * 认证使用 JWT，包含token发放和token refresh，token主动失效
 * 权限包含路由权限和接口权限
 
+## 文件夹目录介绍
+
+> 获取当前Django项目所有的api
+
+* basic -> api_path.py
+
+> 自定义分页
+
+* basic -> page_pagination.py
+
+> 自定义认证
+
+* basic -> base_authorization.py
+
+> 自定义全局异常
+
+* basic -> base_exception.py
+
 ## 项目启动
 
 > 安装环境
@@ -28,8 +46,8 @@ python manage.py migrate
 ### ERP
 
 > 模型关系图
-https://github.com/RunningFaster/DjangoAuthAdmin/tree/master/static/github/ERP.png
-![ERP](https://github.com/RunningFaster/DjangoAuthAdmin/tree/master/static/github/ERP.png)
+https://github.com/RunningFaster/django-authentication/blob/master/static/github/ERP.png
+![image](https://github.com/RunningFaster/django-authentication/blob/master/static/github/ERP.png)
 
 ### 认证
 
