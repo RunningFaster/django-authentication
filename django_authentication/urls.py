@@ -1,8 +1,11 @@
-from django.conf.urls import url
-from django.urls import include, path
 import debug_toolbar
-from organization.urls import user_urlpatterns, menu_urlpatterns, common_urlpatterns, role_urlpatterns, department_urlpatterns
+from django.conf.urls import url
 from django.contrib import admin
+from django.urls import include, path
+
+from organization.urls import (common_urlpatterns, department_urlpatterns,
+                               menu_urlpatterns, role_urlpatterns,
+                               user_urlpatterns)
 
 urlpatterns = [
     # 普通接口

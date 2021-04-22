@@ -2,13 +2,13 @@ import time
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
+from django.core.cache import cache
 from django.db.models import Prefetch
 from rest_framework import serializers
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.exceptions import AuthenticationFailed, MethodNotAllowed
 from rest_framework.permissions import BasePermission
 from rest_framework_jwt.serializers import VerifyJSONWebTokenSerializer
-from django.core.cache import cache
 
 User = get_user_model()
 

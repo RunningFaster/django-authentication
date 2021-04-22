@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from organization.models import UserBase, Menu, Role, Department, Api
+
+from organization.models import Api, Department, Menu, Role, UserBase
 
 
 class LoginSerializer(serializers.Serializer):

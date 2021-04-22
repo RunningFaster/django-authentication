@@ -1,20 +1,24 @@
-import time
 import datetime
+import time
 
+from django.core.cache import cache
 from django.db import transaction
 from django.db.models import Prefetch
 from django.views.decorators.cache import cache_page
 from rest_framework.exceptions import *
 from rest_framework.response import Response
-from rest_framework_jwt.serializers import jwt_payload_handler, jwt_encode_handler
-from django.core.cache import cache
+from rest_framework_jwt.serializers import (jwt_encode_handler,
+                                            jwt_payload_handler)
+from rest_framework_jwt.settings import api_settings
 
 from basic.api_path import API_PATH
 from basic.base_viewset import BaseViewSet
-from organization.models import UserBase, Menu, Role, Department, Api
-from organization.serializers import ListUserBaseSerializer, UserBaseSerializer, LoginSerializer, MenuSerializer, \
-    RoleSerializer, DepartmentSerializer, ApiSerializer, ListMenuSerializer, ListRoleSerializer, PermmenuMenuSerializer
-from rest_framework_jwt.settings import api_settings
+from organization.models import Api, Department, Menu, Role, UserBase
+from organization.serializers import (ApiSerializer, DepartmentSerializer,
+                                      ListMenuSerializer, ListRoleSerializer,
+                                      ListUserBaseSerializer, LoginSerializer,
+                                      MenuSerializer, PermmenuMenuSerializer,
+                                      RoleSerializer, UserBaseSerializer)
 
 expiration_delta = api_settings.JWT_EXPIRATION_DELTA
 refresh_expiration_delta = api_settings.JWT_REFRESH_EXPIRATION_DELTA

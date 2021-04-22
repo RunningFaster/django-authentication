@@ -1,4 +1,4 @@
-from django.contrib.auth.hashers import make_password, check_password
+from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser, UserManager
 from django.db import models
 from mptt.models import MPTTModel

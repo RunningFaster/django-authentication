@@ -8,12 +8,11 @@
 import re
 from importlib import import_module
 
-from rest_framework.views import APIView
-
-from django.utils import six
-from django.contrib.admindocs.views import simplify_regex
 from django.conf import settings
+from django.contrib.admindocs.views import simplify_regex
 from django.urls import URLPattern, URLResolver
+from django.utils import six
+from rest_framework.views import APIView
 
 
 class API_PATH:
