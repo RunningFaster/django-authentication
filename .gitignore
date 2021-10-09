@@ -7,7 +7,7 @@ db.sqlite3
 media
 
 .idea/
-django_authentication/settings/pro.py
+django_authentication/config.py
 # Backup files #
 *.bak
 /django_auth_admin/settings.py
