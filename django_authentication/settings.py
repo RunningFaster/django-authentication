@@ -7,7 +7,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'ohu=ohs#j@yrt#bwgcm4o#1#2q58s*q^t$&si@amwvbuevzue9'
 
-DEBUG = True
+from config import *
 
 ALLOWED_HOSTS = ["*"]
 
@@ -23,9 +23,9 @@ INSTALLED_APPS = [
     'debug_toolbar',  # 调试信息
     'rest_framework',  # drf
     'corsheaders',  # 跨域方案
+    'djcelery',  # 异步
 
     'organization',  # 组织架构
-    'test_app',
 ]
 
 INTERNAL_IPS = ['127.0.0.1']
@@ -86,11 +86,13 @@ USE_TZ = False
 DATETIME_FORMAT = "Y年n月j日 H:i:s"
 
 STATIC_URL = '/static/'
-# STATIC_ROOT =  os.path.join(BASE_DIR,'static')
 STATICFILES_DIRS = [
     "./static/",
 ]
-MEDIA_ROOT = os.path.join(BASE_DIR, 'static/upload')
+# STATIC_ROOT = os.path.join(BASE_DIR, "static")
+# 文件存储配置
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')  # 默认根目录
 
 REST_FRAMEWORK = {
     # 处理对象时间格式
@@ -130,25 +132,50 @@ JWT_AUTH = {
     'JWT_EXPIRATION_DELTA': datetime.timedelta(seconds=100000),
 }
 
+# 日志信息
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'handlers': {
+        'default': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': PROJECT_LOG_PAHT + 'jingan_recyclable.log',
+            'maxBytes': 1024 * 1024 * 5,
+            'backupCount': 5,
+            'formatter': 'default',
+        },
         'console': {
             'level': 'DEBUG',
             'class': 'logging.StreamHandler',
-            'formatter': 'default',
+            'formatter': 'default'
+        },
+        'db_console': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': PROJECT_LOG_PAHT + 'jingan_recyclable_db.log',
+            'maxBytes': 1024 * 1024 * 5,
+            'backupCount': 5,
+            'formatter': 'db.backends',
         },
     },
     'loggers': {
         '': {
-            'handlers': ['console'],
+            'handlers': ['default', 'console'],
+            'level': 'DEBUG',
+        },
+        'django.db.backends': {
+            'handlers': ['db_console'],
+            'propagate': True,
             'level': 'DEBUG',
         },
     },
     'formatters': {
         'default': {
-            'format': '%(asctime)s [%(levelname)s] [%(name)s:%(lineno)d]: %(message)s'
+            'format': '%(asctime)s [%(threadName)s:%(thread)d] [%(name)s:%(lineno)d] [%(module)s:%(funcName)s] [%(levelname)s]-\n%(message)s'
+        },
+        'db.backends': {
+            'format': '%(message)s'
         }
     },
 }
@@ -181,3 +208,53 @@ CORS_ALLOW_HEADERS = (
     'x-requested-with',
     'Pragma',
 )
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': MYSQL_DB,
+        'USER': MYSQL_USER,
+        'PASSWORD': MYSQL_PASSWORD,
+        'HOST': MYSQL_HOST,
+        'PORT': MYSQL_PORT,
+        'OPTIONS': {
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+        }
+    }
+}
+
+#############################
+# celery 配置信息 start
+#############################
+import djcelery
+
+djcelery.setup_loader()
+RABBITMQ_CONFIG = "pyamqp://guest_test:guest@118.25.75.75:5673/DjangoAuth"
+BROKER_URL = RABBITMQ_CONFIG
+# 消息代理
+CELERY_TIMEZONE = 'Asia/Shanghai'
+CELERYBEAT_SCHEDULER = 'djcelery.schedulers.DatabaseScheduler'
+# 并发worker数
+CELERYD_CONCURRENCY = 4
+# 每个worker最多执行完100个任务就会被销毁，可防止内存泄露
+CELERYD_MAX_TASKS_PER_CHILD = 10
+# 任务发出后，经过一段时间还未收到acknowledge , 就将任务重新交给其他worker执行
+CELERY_DISABLE_RATE_LIMITS = True
+# 防止死锁
+CELERYD_FORCE_EXECV = True
+# 通用格式
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_RESULT_SERIALIZER = 'json'
+#############################
+# celery 配置信息 end
+#############################
+
+# 定时任务
+CELERYBEAT_SCHEDULE = {
+    'test_app.tasks.verify': {
+        "task": "test_app.tasks.verify",
+        "schedule": datetime.timedelta(seconds=5),  # 每5秒执行一下receive_mail函数
+        "args": (),  # 参数
+    }
+}
