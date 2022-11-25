@@ -12,7 +12,6 @@ from config import *
 ALLOWED_HOSTS = ["*"]
 
 INSTALLED_APPS = [
-    'simpleui',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -20,11 +19,12 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
-    'debug_toolbar',  # 调试信息
+    # 'debug_toolbar',  # 调试信息
     'rest_framework',  # drf
     'corsheaders',  # 跨域方案
     'djcelery',  # 异步
 
+    'rest_framework_jwt',  # 认证
     'organization',  # 组织架构
 ]
 
@@ -36,7 +36,7 @@ MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',  # 跨域问题解决方案
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
-    'debug_toolbar.middleware.DebugToolbarMiddleware',  # 调试界面
+    # 'debug_toolbar.middleware.DebugToolbarMiddleware',  # 调试界面
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',

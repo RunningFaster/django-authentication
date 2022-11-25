@@ -10,7 +10,6 @@ from importlib import import_module
 
 from rest_framework.views import APIView
 
-from django.utils import six
 from django.contrib.admindocs.views import simplify_regex
 from django.conf import settings
 from django.urls import URLPattern, URLResolver
