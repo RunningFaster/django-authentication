@@ -140,7 +140,7 @@ LOGGING = {
         'default': {
             'level': 'DEBUG',
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': PROJECT_LOG_PAHT + 'jingan_recyclable.log',
+            'filename': 'project.log',
             'maxBytes': 1024 * 1024 * 5,
             'backupCount': 5,
             'formatter': 'default',
@@ -153,7 +153,7 @@ LOGGING = {
         'db_console': {
             'level': 'DEBUG',
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': PROJECT_LOG_PAHT + 'jingan_recyclable_db.log',
+            'filename': 'db.log',
             'maxBytes': 1024 * 1024 * 5,
             'backupCount': 5,
             'formatter': 'db.backends',

@@ -7,5 +7,3 @@ MYSQL_PORT = 3306
 MYSQL_USER = "root"
 MYSQL_PASSWORD = "123456"
 MYSQL_DB = "django_authentication"
-# 项目日志目录
-PROJECT_LOG_PAHT = "./"
